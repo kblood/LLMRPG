@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build and distribution
+dist/
+build/
+*.exe
+*.dmg
+*.deb
+
+# Game data
+saves/
+replays/
+logs/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS files
+Thumbs.db
+.DS_Store
+*.log

@@ -1,0 +1,908 @@
+import { GameSession } from '../../src/game/GameSession.js';
+import { GameMaster } from '../../src/systems/GameMaster.js';
+import { OllamaService } from '../../src/services/OllamaService.js';
+import { EventBus } from '../../src/services/EventBus.js';
+import { Character } from '../../src/entities/Character.js';
+import { Personality } from '../../src/ai/personality/Personality.js';
+import { CharacterStats } from '../../src/systems/stats/CharacterStats.js';
+import { Inventory } from '../../src/systems/items/Inventory.js';
+import { Equipment } from '../../src/systems/items/Equipment.js';
+import { AbilityManager } from '../../src/systems/abilities/AbilityManager.js';
+import { createAllNPCs } from '../../src/data/npc-roster.js';
+import { ReplayLogger } from '../../src/replay/ReplayLogger.js';
+import { ReplayFile } from '../../src/replay/ReplayFile.js';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Game Backend - Bridges game logic with Electron IPC
+ */
+export class GameBackend {
+  constructor() {
+    this.session = null;
+    this.gameMaster = null;
+    this.ollama = null;
+    this.eventBus = null;
+    this.npcs = null;
+    this.player = null;
+    this.currentConversation = null;
+    this.conversationHistory = [];
+    this.initialized = false;
+
+    // Autonomous mode state
+    this.autonomousMode = false;
+    this.autonomousInterval = null;
+    this.autonomousConfig = {
+      maxTurnsPerConversation: 10,
+      pauseBetweenTurns: 2000, // 2 seconds
+      pauseBetweenConversations: 3000 // 3 seconds
+    };
+    this.pastConversations = [];
+
+    // Replay system
+    this.replayLogger = null;
+    this.replayDir = './replays';
+    this.currentReplayFile = null;
+  }
+
+  async initialize(options = {}) {
+    if (this.initialized) {
+      return this.getStatus();
+    }
+
+    try {
+      console.log('[GameBackend] Initializing...');
+
+      // Initialize services
+      console.log('[GameBackend] Creating OllamaService instance...');
+      this.ollama = OllamaService.getInstance();
+      console.log('[GameBackend] Creating EventBus instance...');
+      this.eventBus = EventBus.getInstance();
+
+      // Check Ollama availability
+      console.log('[GameBackend] Checking Ollama availability at http://localhost:11434...');
+      const ollamaAvailable = await this.ollama.isAvailable();
+      console.log('[GameBackend] Ollama available:', ollamaAvailable);
+
+      if (!ollamaAvailable) {
+        throw new Error('Ollama is not available. Please start Ollama service.');
+      }
+
+      // Create game session
+      this.session = new GameSession({
+        seed: options.seed || Date.now(),
+        model: options.model || 'llama3.1:8b',
+        temperature: options.temperature || 0.8
+      });
+
+      // Create player character with RPG stats
+      const playerStats = new CharacterStats();
+      playerStats.setBaseStats({
+        strength: 12,
+        dexterity: 10,
+        constitution: 14,
+        intelligence: 11,
+        wisdom: 10,
+        charisma: 13
+      });
+
+      const playerInventory = new Inventory(20, 100);
+      const playerEquipment = new Equipment();
+      const playerAbilities = new AbilityManager();
+
+      this.player = new Character('player', options.playerName || 'Kael', {
+        role: 'protagonist',
+        personality: new Personality({
+          friendliness: 60,
+          intelligence: 70,
+          caution: 50,
+          honor: 75,
+          greed: 40,
+          aggression: 35
+        }),
+        backstory: 'A curious adventurer who has arrived in the village.',
+        stats: playerStats,
+        inventory: playerInventory,
+        equipment: playerEquipment,
+        abilities: playerAbilities
+      });
+
+      // Auto-assign starting abilities based on stats
+      playerAbilities.autoAssignAbilities(playerStats);
+
+      // Create NPCs
+      const npcsObject = createAllNPCs();
+      this.npcs = new Map(Object.entries(npcsObject));
+
+      // Register characters with session
+      this.session.addCharacter(this.player);
+      this.npcs.forEach(npc => this.session.addCharacter(npc));
+
+      // Initialize Game Master
+      this.gameMaster = new GameMaster(this.ollama, this.eventBus);
+
+      // Initialize Replay Logger
+      this.replayLogger = new ReplayLogger(this.session.seed);
+      this.replayLogger.initialize({
+        seed: this.session.seed,
+        startTime: Date.now(),
+        characters: [
+          { id: this.player.id, name: this.player.name, role: this.player.role },
+          ...Array.from(this.npcs.values()).map(npc => ({ id: npc.id, name: npc.name, role: npc.role }))
+        ],
+        gameVersion: '1.0.0',
+        mode: 'autonomous_electron'
+      });
+
+      // Create replays directory if it doesn't exist
+      if (!fs.existsSync(this.replayDir)) {
+        fs.mkdirSync(this.replayDir, { recursive: true });
+      }
+
+      // Set up event listeners
+      this.setupEventListeners();
+
+      this.initialized = true;
+      console.log('[GameBackend] Initialized successfully');
+
+      return this.getStatus();
+    } catch (error) {
+      console.error('[GameBackend] Initialization failed:', error);
+      throw error;
+    }
+  }
+
+  setupEventListeners() {
+    // Listen for GM narrations
+    this.eventBus.on('gm:narration', (data) => {
+      console.log('[GameBackend] GM Narration:', data.text);
+      // Forward to renderer if needed
+    });
+
+    // Listen for quest events
+    this.eventBus.on('quest:created', ({ quest }) => {
+      console.log('[GameBackend] Quest created:', quest.title);
+    });
+  }
+
+  async checkOllama() {
+    if (!this.ollama) {
+      this.ollama = OllamaService.getInstance();
+    }
+    const available = await this.ollama.isAvailable();
+    return { available };
+  }
+
+  getNPCs() {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    return Array.from(this.npcs.values()).map(npc => ({
+      id: npc.id,
+      name: npc.name,
+      role: npc.role,
+      personality: npc.personality.traits,
+      background: npc.backstory || npc.background,
+      location: npc.location || 'Village',
+      relationshipLevel: this.player ? npc.relationships.getRelationshipLevel(this.player.id) : 0
+    }));
+  }
+
+  async startConversation(npcId) {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    const npc = this.npcs.get(npcId);
+    if (!npc) {
+      throw new Error(`NPC ${npcId} not found`);
+    }
+
+    try {
+      console.log(`[GameBackend] Starting conversation with ${npc.name}`);
+
+      // Generate GM narration for conversation start
+      const narration = await this.gameMaster.generateDialogueNarration(
+        npc,
+        this.player,
+        {
+          location: 'Village',
+          timeOfDay: this.session.getTimeOfDay()
+        }
+      );
+
+      // Start conversation in the session
+      const conversationId = await this.session.startConversation(npcId);
+
+      this.currentConversation = {
+        id: conversationId,
+        npcId: npcId,
+        npc: npc,
+        turns: [],
+        narration: narration
+      };
+
+      this.conversationHistory = [];
+
+      return {
+        conversationId: conversationId,
+        npc: {
+          id: npc.id,
+          name: npc.name,
+          role: npc.role
+        },
+        narration: narration,
+        relationshipLevel: npc.relationships.getRelationshipLevel(this.player.id)
+      };
+    } catch (error) {
+      console.error('[GameBackend] Failed to start conversation:', error);
+      throw error;
+    }
+  }
+
+  async sendMessage(conversationId, message) {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    if (!this.currentConversation || this.currentConversation.id !== conversationId) {
+      throw new Error('No active conversation or conversation ID mismatch');
+    }
+
+    try {
+      console.log(`[GameBackend] Player says: "${message}"`);
+
+      const npc = this.currentConversation.npc;
+
+      // Add player message to history
+      this.conversationHistory.push({
+        speaker: 'player',
+        text: message,
+        timestamp: Date.now()
+      });
+
+      // Get NPC response through the session
+      const response = await this.session.addConversationTurn(
+        conversationId,
+        npc.id,
+        message
+      );
+
+      // Add NPC response to history
+      this.conversationHistory.push({
+        speaker: npc.id,
+        text: response.text,
+        timestamp: Date.now()
+      });
+
+      this.currentConversation.turns.push({
+        player: message,
+        npc: response.text
+      });
+
+      // Update relationship level
+      const newRelationshipLevel = npc.relationships.getRelationshipLevel(this.player.id);
+
+      console.log(`[GameBackend] ${npc.name} says: "${response.text}"`);
+
+      return {
+        text: response.text,
+        speaker: npc.name,
+        speakerId: npc.id,
+        relationshipLevel: newRelationshipLevel,
+        relationshipChange: response.relationshipChange,
+        questDetected: response.questId ? true : false,
+        questId: response.questId
+      };
+    } catch (error) {
+      console.error('[GameBackend] Failed to send message:', error);
+      throw error;
+    }
+  }
+
+  async endConversation(conversationId) {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    if (!this.currentConversation || this.currentConversation.id !== conversationId) {
+      return; // Already ended or different conversation
+    }
+
+    try {
+      console.log('[GameBackend] Ending conversation');
+
+      this.session.endConversation(conversationId);
+
+      const summary = {
+        npcId: this.currentConversation.npcId,
+        turns: this.currentConversation.turns.length,
+        finalRelationship: this.currentConversation.npc.relationships.getRelationshipLevel(this.player.id)
+      };
+
+      this.currentConversation = null;
+      this.conversationHistory = [];
+
+      return summary;
+    } catch (error) {
+      console.error('[GameBackend] Failed to end conversation:', error);
+      throw error;
+    }
+  }
+
+  getStats() {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    const sessionStats = this.session.getStats();
+
+    return {
+      ...sessionStats,
+      ollamaAvailable: true,
+      activeConversation: this.currentConversation ? {
+        npcId: this.currentConversation.npcId,
+        npcName: this.currentConversation.npc.name,
+        turns: this.currentConversation.turns.length
+      } : null
+    };
+  }
+
+  getQuests() {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    const quests = this.session.getActiveQuests();
+
+    return quests.map(quest => ({
+      id: quest.id,
+      title: quest.title,
+      description: quest.description,
+      giver: quest.giver,
+      status: quest.status,
+      objectives: quest.objectives
+    }));
+  }
+
+  getStatus() {
+    return {
+      initialized: this.initialized,
+      npcsCount: this.npcs ? this.npcs.size : 0,
+      playerName: this.player ? this.player.name : null,
+      sessionId: this.session ? this.session.sessionId : null
+    };
+  }
+
+  getPlayerStats() {
+    if (!this.initialized || !this.player) {
+      throw new Error('Game not initialized');
+    }
+
+    const stats = this.player.stats;
+    if (!stats) {
+      return {
+        name: this.player.name,
+        level: 1,
+        currentHP: 100,
+        maxHP: 100,
+        currentStamina: 100,
+        maxStamina: 100,
+        currentMagic: 100,
+        maxMagic: 100,
+        currentXP: 0,
+        xpToNextLevel: 100
+      };
+    }
+
+    return {
+      name: this.player.name,
+      level: stats.level,
+      currentHP: stats.currentHP,
+      maxHP: stats.maxHP,
+      currentStamina: stats.currentStamina,
+      maxStamina: stats.maxStamina,
+      currentMagic: stats.currentMagic,
+      maxMagic: stats.maxMagic,
+      currentXP: stats.currentXP,
+      xpToNextLevel: stats.xpToNextLevel,
+      attributes: {
+        strength: stats.strength,
+        dexterity: stats.dexterity,
+        constitution: stats.constitution,
+        intelligence: stats.intelligence,
+        wisdom: stats.wisdom,
+        charisma: stats.charisma
+      }
+    };
+  }
+
+  // ============ Autonomous Mode Methods ============
+
+  /**
+   * Start autonomous gameplay mode
+   */
+  async startAutonomousMode(window) {
+    if (!this.initialized) {
+      throw new Error('Game not initialized');
+    }
+
+    if (this.autonomousMode) {
+      console.log('[GameBackend] Autonomous mode already running');
+      return { started: true, message: 'Already running' };
+    }
+
+    console.log('[GameBackend] Starting autonomous mode');
+    this.autonomousMode = true;
+    this.window = window;
+
+    // Log game start event
+    if (this.replayLogger) {
+      this.replayLogger.logEvent(this.session.frame, 'game_start', {
+        mode: 'autonomous',
+        seed: this.session.seed
+      }, 'system');
+    }
+
+    // Start the autonomous loop
+    this._runAutonomousLoop();
+
+    return { started: true };
+  }
+
+  /**
+   * Stop autonomous gameplay mode
+   */
+  async stopAutonomousMode() {
+    console.log('[GameBackend] Stopping autonomous mode');
+    this.autonomousMode = false;
+
+    if (this.currentConversation) {
+      this.endConversation(this.currentConversation.id);
+    }
+
+    // Save replay
+    if (this.replayLogger) {
+      await this._saveReplay();
+    }
+
+    return { stopped: true };
+  }
+
+  /**
+   * Main autonomous game loop
+   */
+  async _runAutonomousLoop() {
+    while (this.autonomousMode) {
+      try {
+        // Choose an NPC to talk to
+        const availableNPCs = Array.from(this.npcs.values()).filter(npc =>
+          !this.pastConversations.includes(npc.id)
+        );
+
+        if (availableNPCs.length === 0) {
+          console.log('[GameBackend] All NPCs have been talked to, resetting');
+          this.pastConversations = [];
+          continue;
+        }
+
+        const chosenNPC = await this._protagonistChooseNPC(availableNPCs);
+        console.log(`[GameBackend] Protagonist chose to talk to ${chosenNPC.name}`);
+
+        // Notify UI
+        this._sendToUI('autonomous:action', {
+          type: 'npc_chosen',
+          npcId: chosenNPC.id,
+          npcName: chosenNPC.name
+        });
+
+        this.pastConversations.push(chosenNPC.id);
+
+        // Wait before starting conversation
+        await this._sleep(this.autonomousConfig.pauseBetweenConversations);
+
+        if (!this.autonomousMode) break;
+
+        // Start conversation
+        await this._runAutonomousConversation(chosenNPC);
+
+        // Wait between conversations
+        await this._sleep(this.autonomousConfig.pauseBetweenConversations);
+
+      } catch (error) {
+        console.error('[GameBackend] Autonomous loop error:', error);
+        this._sendToUI('autonomous:error', {
+          message: error.message
+        });
+        await this._sleep(3000);
+      }
+    }
+
+    console.log('[GameBackend] Autonomous loop ended');
+  }
+
+  /**
+   * Run an autonomous conversation with an NPC
+   */
+  async _runAutonomousConversation(npc) {
+    try {
+      // Generate GM narration
+      const narration = await this.gameMaster.generateDialogueNarration(
+        npc,
+        this.player,
+        {
+          location: 'Village',
+          timeOfDay: this.session.getTimeOfDay()
+        }
+      );
+
+      // Start conversation
+      const conversationId = await this.session.startConversation(npc.id);
+
+      this.currentConversation = {
+        id: conversationId,
+        npcId: npc.id,
+        npc: npc,
+        turns: [],
+        narration: narration
+      };
+
+      this.conversationHistory = [];
+
+      // Log conversation start event
+      if (this.replayLogger) {
+        this.replayLogger.logEvent(this.session.frame++, 'conversation_started', {
+          protagonistId: this.player.id,
+          npcId: npc.id,
+          location: 'Village'
+        }, this.player.id);
+      }
+
+      // Notify UI conversation started
+      this._sendToUI('autonomous:conversation-start', {
+        conversationId: conversationId,
+        npc: {
+          id: npc.id,
+          name: npc.name,
+          role: npc.role
+        },
+        narration: narration
+      });
+
+      // Get initial NPC greeting from conversation history
+      const conversation = this.session.dialogueSystem.activeConversations.get(conversationId);
+      if (conversation && conversation.history.length > 0) {
+        const greeting = conversation.history[0];
+
+        // Log NPC greeting
+        if (this.replayLogger) {
+          this.replayLogger.logEvent(this.session.frame++, 'dialogue_line', {
+            speakerId: npc.id,
+            text: greeting.output
+          }, npc.id);
+        }
+
+        this._sendToUI('autonomous:message', {
+          speaker: 'npc',
+          speakerId: npc.id,
+          speakerName: npc.name,
+          text: greeting.output
+        });
+
+        await this._sleep(this.autonomousConfig.pauseBetweenTurns);
+      }
+
+      // Conversation loop
+      for (let turn = 0; turn < this.autonomousConfig.maxTurnsPerConversation; turn++) {
+        if (!this.autonomousMode) break;
+
+        // Protagonist decides what to say
+        const protagonistResponse = await this._protagonistDecideResponse(
+          this.player,
+          npc,
+          conversation.history
+        );
+
+        // Check for exit intent
+        const exitPhrases = ['goodbye', 'farewell', 'see you', 'be going', 'must go', 'should leave'];
+        const wantsToExit = exitPhrases.some(phrase =>
+          protagonistResponse.toLowerCase().includes(phrase)
+        );
+
+        // Log protagonist dialogue
+        if (this.replayLogger) {
+          this.replayLogger.logEvent(this.session.frame++, 'dialogue_line', {
+            speakerId: this.player.id,
+            text: protagonistResponse
+          }, this.player.id);
+        }
+
+        // Send protagonist message to UI
+        this._sendToUI('autonomous:message', {
+          speaker: 'player',
+          speakerId: this.player.id,
+          speakerName: this.player.name,
+          text: protagonistResponse
+        });
+
+        if (wantsToExit) {
+          console.log(`[GameBackend] ${this.player.name} decides to end conversation`);
+          break;
+        }
+
+        await this._sleep(this.autonomousConfig.pauseBetweenTurns);
+
+        if (!this.autonomousMode) break;
+
+        // Get NPC response
+        const response = await this.session.addConversationTurn(
+          conversationId,
+          npc.id,
+          protagonistResponse
+        );
+
+        // Log NPC dialogue
+        if (this.replayLogger) {
+          this.replayLogger.logEvent(this.session.frame++, 'dialogue_line', {
+            speakerId: npc.id,
+            text: response.text
+          }, npc.id);
+        }
+
+        // Send NPC response to UI
+        this._sendToUI('autonomous:message', {
+          speaker: 'npc',
+          speakerId: npc.id,
+          speakerName: npc.name,
+          text: response.text
+        });
+
+        // Check if NPC wants to end
+        const npcExitIntent = response && response.text &&
+          exitPhrases.some(phrase => response.text.toLowerCase().includes(phrase));
+
+        if (npcExitIntent) {
+          console.log(`[GameBackend] ${npc.name} ends conversation`);
+          break;
+        }
+
+        await this._sleep(this.autonomousConfig.pauseBetweenTurns);
+      }
+
+      // End conversation
+      const summary = await this.endConversation(conversationId);
+
+      // Log conversation end
+      if (this.replayLogger) {
+        this.replayLogger.logEvent(this.session.frame++, 'conversation_ended', {
+          protagonistId: this.player.id,
+          npcId: npc.id,
+          turns: summary.turns
+        }, 'system');
+
+        // Create checkpoint
+        this.replayLogger.logCheckpoint(this.session.frame, {
+          frame: this.session.frame,
+          conversationCompleted: conversationId,
+          relationships: {
+            [npc.id]: this.player.relationships.getRelationship(npc.id).value
+          }
+        });
+      }
+
+      // Notify UI conversation ended
+      this._sendToUI('autonomous:conversation-end', {
+        npcId: npc.id,
+        npcName: npc.name,
+        turns: summary.turns,
+        relationshipLevel: summary.finalRelationship
+      });
+
+    } catch (error) {
+      console.error('[GameBackend] Autonomous conversation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Protagonist AI chooses which NPC to talk to
+   */
+  async _protagonistChooseNPC(availableNPCs) {
+    // Simple choice: just pick first available for now
+    // TODO: Use LLM to make intelligent choice
+    return availableNPCs[0];
+  }
+
+  /**
+   * Protagonist AI decides what to say
+   */
+  async _protagonistDecideResponse(protagonist, npc, conversationHistory) {
+    const recentHistory = conversationHistory.slice(-6);
+    const historyText = recentHistory.map(turn => {
+      return `${turn.speakerId === protagonist.id ? 'You' : npc.name}: ${turn.output || turn.input}`;
+    }).join('\n');
+
+    const goals = protagonist.memory.getMemoriesByType('goal');
+
+    const context = `You are ${protagonist.name}, ${protagonist.backstory}
+
+Your personality:
+${protagonist.personality.toDetailedDescription()}
+
+Your current goals:
+${goals.map(g => `- ${g.content}`).join('\n') || '- Learn more about this person'}
+
+You are having a conversation with ${npc.name}, who is ${npc.occupation || 'a villager'}.
+${npc.backstory ? `About them: ${npc.backstory}` : ''}
+
+Recent conversation:
+${historyText || '(conversation just started)'}
+
+Based on your personality and goals, decide what to say next to ${npc.name}.
+${conversationHistory.length < 3 ? 'Keep it friendly and introduce yourself naturally.' : 'Continue the conversation meaningfully.'}
+${conversationHistory.length > 7 ? 'Consider wrapping up the conversation politely if appropriate.' : ''}
+
+Respond naturally in first person. Keep it concise (1-2 sentences).`;
+
+    try {
+      const seed = Math.abs((this.session.seed % 1000000) + conversationHistory.length);
+
+      // OllamaService.generate() returns a plain string, not an object
+      const response = await this.ollama.generate(context, {
+        model: this.session.model || 'llama3.1:8b',
+        temperature: this.session.temperature || 0.8,
+        seed: seed
+      });
+
+      // response is already a string
+      let text = response || '';
+      text = text.trim();
+      text = text.replace(/^(You say:|I say:|Response:|Protagonist:)\s*/i, '');
+      text = text.replace(/^["']|["']$/g, '');
+      text = text.split('\n')[0];
+
+      console.log(`[GameBackend] Protagonist response: "${text}"`);
+      return text || 'Hello!';
+    } catch (error) {
+      console.error('[GameBackend] Protagonist AI error:', error);
+      if (conversationHistory.length === 0) {
+        return "Greetings! I'm new to this village.";
+      } else if (conversationHistory.length > 7) {
+        return "It was nice talking with you. I should be going.";
+      } else {
+        return "Tell me more about that.";
+      }
+    }
+  }
+
+  /**
+   * Send event to UI window
+   */
+  _sendToUI(event, data) {
+    if (this.window && !this.window.isDestroyed()) {
+      this.window.webContents.send(event, data);
+    }
+  }
+
+  /**
+   * Sleep helper
+   */
+  _sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Save replay to file
+   */
+  async _saveReplay() {
+    if (!this.replayLogger) {
+      console.log('[GameBackend] No replay logger to save');
+      return null;
+    }
+
+    try {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      const filename = path.join(
+        this.replayDir,
+        `autonomous_game_${timestamp}_${this.session.seed}.json`
+      );
+
+      await this.replayLogger.save(filename);
+
+      const stats = fs.statSync(filename);
+      console.log(`[GameBackend] Replay saved: ${filename} (${(stats.size / 1024).toFixed(2)} KB)`);
+
+      this.currentReplayFile = filename;
+
+      // Notify UI
+      this._sendToUI('replay:saved', {
+        filename: path.basename(filename),
+        fullPath: filename,
+        size: stats.size,
+        events: this.replayLogger.getEventCount(),
+        llmCalls: this.replayLogger.getLLMCallCount()
+      });
+
+      return filename;
+    } catch (error) {
+      console.error('[GameBackend] Failed to save replay:', error);
+      return null;
+    }
+  }
+
+  /**
+   * List available replay files
+   */
+  async listReplays() {
+    try {
+      if (!fs.existsSync(this.replayDir)) {
+        return [];
+      }
+
+      const files = fs.readdirSync(this.replayDir);
+      const replays = files
+        .filter(f => f.endsWith('.json'))
+        .map(f => {
+          const fullPath = path.join(this.replayDir, f);
+          const stats = fs.statSync(fullPath);
+
+          return {
+            filename: f,
+            fullPath: fullPath,
+            size: stats.size,
+            modified: stats.mtime,
+            created: stats.birthtime
+          };
+        })
+        .sort((a, b) => b.modified - a.modified); // Most recent first
+
+      return replays;
+    } catch (error) {
+      console.error('[GameBackend] Failed to list replays:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Load a replay file
+   */
+  async loadReplay(filename) {
+    try {
+      const fullPath = path.join(this.replayDir, filename);
+
+      if (!fs.existsSync(fullPath)) {
+        throw new Error(`Replay file not found: ${filename}`);
+      }
+
+      // Use ReplayFile.load() to handle decompression
+      const replay = await ReplayFile.load(fullPath);
+
+      console.log(`[GameBackend] Loaded replay: ${filename}`);
+      console.log(`  Events: ${replay.events?.length || 0}`);
+      console.log(`  LLM Calls: ${replay.llmCalls?.length || 0}`);
+      console.log(`  Checkpoints: ${replay.checkpoints?.length || 0}`);
+
+      return replay;
+    } catch (error) {
+      console.error('[GameBackend] Failed to load replay:', error);
+      throw error;
+    }
+  }
+
+  cleanup() {
+    console.log('[GameBackend] Cleaning up...');
+
+    this.stopAutonomousMode();
+
+    if (this.currentConversation) {
+      this.endConversation(this.currentConversation.id);
+    }
+
+    this.session = null;
+    this.gameMaster = null;
+    this.npcs = null;
+    this.player = null;
+    this.initialized = false;
+  }
+}

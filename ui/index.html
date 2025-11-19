@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OllamaRPG - AI-Powered Dialogue Adventure</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="container">
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+      <div class="loading-content">
+        <h1 class="game-title">⚔️ OllamaRPG ⚔️</h1>
+        <p class="subtitle">AI-Powered Dialogue Adventure</p>
+        <div class="loading-spinner"></div>
+        <p id="loading-status" class="loading-status">Initializing game...</p>
+      </div>
+    </div>
+
+    <!-- Main Game Screen -->
+    <div id="game-screen" class="game-screen hidden">
+      <!-- Header -->
+      <header class="game-header">
+        <div class="header-left">
+          <h1 class="game-title-small">⚔️ OllamaRPG</h1>
+          <span class="session-info" id="session-info">Session: Loading...</span>
+        </div>
+        <div class="header-right">
+          <span class="game-time" id="game-time">00:00</span>
+          <span class="time-of-day" id="time-of-day">Evening</span>
+        </div>
+      </header>
+
+      <!-- Main Content Area -->
+      <div class="main-content">
+        <!-- Sidebar - Character Sheet & Info -->
+        <aside class="sidebar">
+          <!-- Player Character Panel -->
+          <div id="player-panel" class="panel player-panel hidden">
+            <h2 class="panel-title">⚔️ Character</h2>
+            <div class="player-info">
+              <div class="player-name-level">
+                <span class="player-name" id="player-name">Kael</span>
+                <span class="player-level" id="player-level">Lv 1</span>
+              </div>
+              <div class="player-resources">
+                <div class="resource-bar hp-bar">
+                  <div class="resource-label">
+                    <span>❤️ HP</span>
+                    <span id="hp-text">100/100</span>
+                  </div>
+                  <div class="resource-bar-fill">
+                    <div id="hp-fill" class="bar-fill hp" style="width: 100%"></div>
+                  </div>
+                </div>
+                <div class="resource-bar stamina-bar">
+                  <div class="resource-label">
+                    <span>⚡ Stamina</span>
+                    <span id="stamina-text">100/100</span>
+                  </div>
+                  <div class="resource-bar-fill">
+                    <div id="stamina-fill" class="bar-fill stamina" style="width: 100%"></div>
+                  </div>
+                </div>
+                <div class="resource-bar magic-bar">
+                  <div class="resource-label">
+                    <span>🔮 Magic</span>
+                    <span id="magic-text">100/100</span>
+                  </div>
+                  <div class="resource-bar-fill">
+                    <div id="magic-fill" class="bar-fill magic" style="width: 100%"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="player-xp">
+                <div class="xp-label">
+                  <span>XP</span>
+                  <span id="xp-text">0/100</span>
+                </div>
+                <div class="xp-bar-fill">
+                  <div id="xp-fill" class="bar-fill xp" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel npc-panel">
+            <h2 class="panel-title">📜 Characters</h2>
+            <div id="npc-list" class="npc-list">
+              <!-- NPCs will be populated here -->
+            </div>
+          </div>
+
+          <div class="panel quests-panel">
+            <h2 class="panel-title">⚡ Active Quests</h2>
+            <div id="quest-list" class="quest-list">
+              <p class="no-quests">No active quests</p>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main Dialogue Area -->
+        <main class="dialogue-area">
+          <!-- Welcome Screen -->
+          <div id="welcome-panel" class="welcome-panel">
+            <div class="welcome-content">
+              <h2>🏰 OllamaRPG - AI-Powered Adventure 🏰</h2>
+              <p class="welcome-text">
+                Choose your gameplay mode: Take control as the protagonist and interact with AI-powered NPCs,
+                or watch AI characters interact autonomously in emergent narratives.
+              </p>
+              <p class="welcome-hint">
+                🎮 <strong>Select a mode below to begin your adventure!</strong>
+              </p>
+              <div class="mode-selector">
+                <div class="mode-option">
+                  <h3>🕹️ Manual Mode</h3>
+                  <p>You control the protagonist and make all decisions</p>
+                  <button id="start-manual-btn" class="btn btn-primary btn-large">Play Manually</button>
+                </div>
+                <div class="mode-option">
+                  <h3>🤖 Autonomous Mode</h3>
+                  <p>Watch AI characters interact with each other</p>
+                  <button id="start-autonomous-btn" class="btn btn-primary btn-large">Watch AI Play</button>
+                </div>
+              </div>
+              <div class="autonomous-controls hidden">
+                <button id="stop-autonomous-btn" class="btn btn-secondary btn-large">⏹️ Stop Autonomous Mode</button>
+                <button id="view-replays-btn" class="btn btn-secondary btn-large">📼 View Replays</button>
+              </div>
+              <div class="stats-preview">
+                <div class="stat-item">
+                  <span class="stat-label">NPCs Available:</span>
+                  <span class="stat-value" id="npc-count">10</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Conversations:</span>
+                  <span class="stat-value" id="conversation-count">0</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-label">Mode:</span>
+                  <span class="stat-value" id="mode-status">Waiting</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conversation Panel -->
+          <div id="conversation-panel" class="conversation-panel hidden">
+            <!-- Conversation Header -->
+            <div class="conversation-header">
+              <div class="npc-info">
+                <span class="npc-name" id="current-npc-name">Character Name</span>
+                <span class="npc-role" id="current-npc-role">Role</span>
+              </div>
+              <div class="relationship-badge">
+                <span class="relationship-label">Relationship:</span>
+                <span class="relationship-value" id="relationship-value">0</span>
+                <span class="relationship-status" id="relationship-status">Neutral</span>
+              </div>
+              <button id="end-conversation-btn" class="btn btn-secondary">End Conversation</button>
+            </div>
+
+            <!-- GM Narration -->
+            <div id="gm-narration" class="gm-narration">
+              <!-- Narration will appear here -->
+            </div>
+
+            <!-- Dialogue History -->
+            <div id="dialogue-history" class="dialogue-history">
+              <!-- Conversation messages will appear here -->
+            </div>
+
+            <!-- Autonomous Mode Controls -->
+            <div id="autonomous-conversation-controls" class="autonomous-conversation-controls hidden">
+              <button id="stop-conversation-btn" class="btn btn-secondary">⏹️ Stop Autonomous Mode</button>
+              <span class="autonomous-status" id="autonomous-status">AI characters are conversing...</span>
+            </div>
+
+            <!-- Manual Mode Input Area -->
+            <div id="manual-input-area" class="input-area hidden">
+              <textarea id="message-input" class="message-input" placeholder="What do you want to say?" rows="2"></textarea>
+              <button id="send-message-btn" class="btn btn-primary">Send</button>
+            </div>
+          </div>
+
+          <!-- Replay Viewer Panel -->
+          <div id="replay-panel" class="replay-panel hidden">
+            <div class="replay-header">
+              <h2>📼 Replay Viewer</h2>
+              <button id="close-replay-btn" class="btn btn-secondary">← Back</button>
+            </div>
+
+            <!-- Replay List -->
+            <div id="replay-list-section" class="replay-list-section">
+              <h3>Saved Replays</h3>
+              <div id="replay-list" class="replay-list">
+                <p class="no-replays">No replays available. Run autonomous mode to create replays!</p>
+              </div>
+            </div>
+
+            <!-- Replay Playback -->
+            <div id="replay-playback-section" class="replay-playback-section hidden">
+              <div class="replay-info">
+                <h3 id="replay-filename">Replay File</h3>
+                <div class="replay-stats">
+                  <span>Events: <strong id="replay-events">0</strong></span>
+                  <span>LLM Calls: <strong id="replay-llm-calls">0</strong></span>
+                  <span>Frame: <strong id="replay-current-frame">0</strong> / <strong id="replay-total-frames">0</strong></span>
+                </div>
+              </div>
+
+              <!-- Playback Controls -->
+              <div class="playback-controls">
+                <button id="replay-play-btn" class="btn btn-primary">▶️ Play</button>
+                <button id="replay-pause-btn" class="btn btn-secondary hidden">⏸️ Pause</button>
+                <button id="replay-stop-btn" class="btn btn-secondary">⏹️ Stop</button>
+                <button id="replay-prev-btn" class="btn btn-secondary">⏮️ Prev</button>
+                <button id="replay-next-btn" class="btn btn-secondary">⏭️ Next</button>
+                <div class="speed-control">
+                  <label>Speed:</label>
+                  <select id="replay-speed">
+                    <option value="0.5">0.5x</option>
+                    <option value="1" selected>1x</option>
+                    <option value="2">2x</option>
+                    <option value="5">5x</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Frame Scrubber -->
+              <div class="frame-scrubber">
+                <input type="range" id="frame-slider" class="frame-slider" min="0" max="100" value="0">
+                <div class="frame-markers" id="frame-markers">
+                  <!-- Checkpoint markers will be added here -->
+                </div>
+              </div>
+
+              <!-- Replay Content -->
+              <div id="replay-content" class="replay-content">
+                <!-- Events will be displayed here during playback -->
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+
+      <!-- Status Bar -->
+      <footer class="status-bar">
+        <div class="status-item">
+          <span class="status-icon">🎮</span>
+          <span id="status-text">Ready</span>
+        </div>
+        <div class="status-item">
+          <span class="status-icon">🤖</span>
+          <span id="ollama-status">Ollama: Checking...</span>
+        </div>
+        <div class="status-item">
+          <span class="status-icon">💬</span>
+          <span id="turns-count">Turns: 0</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
