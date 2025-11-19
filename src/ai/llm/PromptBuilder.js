@@ -22,7 +22,7 @@ export class PromptBuilder {
 
     // Character identity
     parts.push(`You are ${speaker.name}${speaker.occupation ? `, a ${speaker.occupation}` : ''}.`);
-    
+
     if (speaker.backstory) {
       parts.push(`\nBackground: ${speaker.backstory}`);
     }
@@ -33,6 +33,36 @@ export class PromptBuilder {
     // Current emotional state
     if (speaker.emotionalState && speaker.emotionalState !== 'neutral') {
       parts.push(`\nCurrent emotional state: ${speaker.emotionalState}`);
+    }
+
+    // Current mood and concern (Phase 1C enhancement)
+    if (speaker.mood && speaker.mood !== 'neutral') {
+      parts.push(`\nCurrent mood: ${speaker.mood}`);
+    }
+
+    if (speaker.currentConcern) {
+      parts.push(`\nCurrent concern: ${speaker.currentConcern}`);
+    }
+
+    // NPC Knowledge (Phase 1C enhancement)
+    if (speaker.knowledge && context.includeKnowledge !== false) {
+      if (speaker.knowledge.specialties && speaker.knowledge.specialties.length > 0) {
+        parts.push(`\nYou are knowledgeable about: ${speaker.knowledge.specialties.join(', ')}`);
+      }
+
+      if (speaker.knowledge.rumors && speaker.knowledge.rumors.length > 0) {
+        parts.push('\nRumors you have heard:');
+        speaker.knowledge.rumors.forEach((rumor, i) => {
+          parts.push(`  ${i + 1}. ${rumor}`);
+        });
+      }
+
+      if (speaker.knowledge.secrets && speaker.knowledge.secrets.length > 0) {
+        parts.push('\nSecrets you know (be careful who you tell):');
+        speaker.knowledge.secrets.forEach((secret, i) => {
+          parts.push(`  ${i + 1}. ${secret}`);
+        });
+      }
     }
 
     // Memories
@@ -56,6 +86,11 @@ export class PromptBuilder {
       parts.push(`\nCurrent goal: ${speaker.currentGoal}`);
     }
 
+    // Quest context (PHASE 5 enhancement)
+    if (context.questContext) {
+      parts.push(context.questContext);
+    }
+
     // Conversation context
     if (context.situation) {
       parts.push(`\nSituation: ${context.situation}`);
@@ -72,8 +107,17 @@ export class PromptBuilder {
     if (context.input) {
       parts.push(`\n${listener ? listener.name : 'Someone'} says: "${context.input}"`);
       parts.push(`\nRespond naturally as ${speaker.name} would, in one or two sentences. Stay in character.`);
+      parts.push('If they ask about something you know, share your knowledge.');
+      parts.push('Reference your concerns when relevant.');
+      if (context.questContext) {
+        parts.push('If relevant, naturally reference any quests or tasks you mentioned.');
+      }
     } else {
       parts.push(`\nGreet ${listener ? listener.name : 'them'} naturally as ${speaker.name} would, considering your personality and relationship. Keep it brief and natural.`);
+      parts.push('You may reference your current concern if appropriate.');
+      if (context.questContext) {
+        parts.push('If you asked them for help before, you might briefly mention it.');
+      }
     }
 
     return parts.join('\n');

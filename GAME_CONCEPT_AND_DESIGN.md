@@ -105,25 +105,45 @@ A **dialogue-focused AI RPG** where you engage in natural conversations with NPC
    - LLM inspection ✅
    - Full re-simulation (partial)
 
-### ❌ Not Implemented (0%)
+### 🔄 Backend Systems (Frameworks Exist, Not UI-Exposed)
 
-1. **Movement/Pathfinding**
-   - Library installed but not integrated
-   - No spatial world representation
-   - No character navigation
+1. **Inventory System**
+   - Data structures exist (src/systems/items/)
+   - Items, equipment, inventory classes ready
+   - **Design**: Backend only - surfaces through NPC dialogue
+   - NPCs will reference what player carries
+   - No inventory screen planned
+
+2. **Combat System**
+   - Framework exists (src/systems/combat/)
+   - Combat manager, AI, position tracking ready
+   - **Design**: Narrative-driven - LLM describes combat
+   - Stats influence outcomes, not explicit UI
+   - NPCs react to combat reputation
+
+3. **Quest System**
+   - Basic structure exists (src/systems/quest/)
+   - Quest manager, quest generator classes ready
+   - **Design**: Emerges from dialogue naturally
+   - Tracked in backend, referenced in conversation
+   - No explicit quest log UI
+
+### ❌ Not Planned (Rejected Approaches)
+
+1. **Spatial Movement/Pathfinding**
+   - PathFinding.js installed but won't be used for grid movement
+   - Will use conceptual locations instead
+   - Time-based travel, not pathfinding
 
 2. **GOAP System**
-   - Directory structure exists
-   - No planner implementation
-   - No action library
+   - Directory exists but not priority
+   - Current LLM-direct approach works well
+   - May revisit for NPC autonomy later
 
-3. **Web UI**
-   - Phaser/React planned
-   - Not started
-
-4. **Combat/Inventory**
-   - Framework only
-   - No implementation
+3. **Graphical UI (Phaser/React)**
+   - Originally planned, now rejected
+   - Text-driven design philosophy adopted
+   - CLI with ANSI colors is the interface
 
 ---
 
@@ -764,64 +784,70 @@ You: Hi Mara, you look worried. What's wrong?
 
 ---
 
-## Future Expansion
+## Future Expansion (Text-Driven Focus)
 
-### Phase 5: Movement & World (Planned)
+### Phase 5: Deep Dialogue & Quest System ⭐ PRIORITY
 
 **What's Needed:**
-- Integrate PathFinding.js (already installed)
-- Grid-based world representation
-- Character spatial navigation
-- Building entry/exit mechanics
-- Map rendering
+- Quest detection from natural dialogue
+- Quest state tracking in NPC memory
+- Quest completion affects relationships
+- Group conversations (3+ characters)
+- NPC gossip networks
+- Context-aware dialogue enhancements
 
 **Estimated**: 1-2 weeks
+**Status**: Next priority
 
-### Phase 6: GOAP System (Planned)
+### Phase 6: Conceptual Location System
 
 **What's Needed:**
-- GOAP planner implementation
-- Action library (MoveTo, TalkTo, etc.)
-- Goal generation from LLM
-- Plan execution
-- World state tracking
+- Named locations (not spatial grids)
+- Time-based travel between locations
+- NPC schedules and presence tracking
+- Location-aware dialogue
+- Environmental descriptions through GM
+- Points of interest (examine command)
+
+**Estimated**: 1 week
+**Approach**: Conceptual, not pathfinding-based
+
+### Phase 7: Backend System Integration
+
+**What's Needed:**
+- Inventory backend → LLM context
+- NPCs reference player items naturally
+- Combat outcomes → dialogue influence
+- Stats unlock dialogue options
+- Character progression through narrative
+- Reputation system
 
 **Estimated**: 1-2 weeks
-
-### Phase 7: Web UI (High Priority)
-
-**What's Needed:**
-- Phaser 3 game rendering
-- React UI components
-- Character panels
-- Visual novel style interface
-- Electron packaging
-
-**Estimated**: 2-3 weeks
+**Philosophy**: Systems exist in background, emerge through text
 
 ### Phase 8: Content Expansion (Ongoing)
 
 **What's Needed:**
 - 10 more NPCs (target: 20 total)
-- Quest chains (3-5 quests linked)
-- Dynamic events
-- More locations
-- Richer backstories
+- Interconnected quest chains
+- Dynamic events propagating through NPC network
+- More conceptual locations
+- Richer backstories and relationships
+- Secrets and mysteries to discover
 
 **Estimated**: Ongoing
 
-### Phase 9: Polish (Final)
+### Phase 9: Polish & Infrastructure
 
 **What's Needed:**
-- Visual assets
-- Sound effects
-- Music
-- Animations
-- Performance optimization
 - Save/load system
-- Settings menu
+- Better CLI formatting
+- Performance optimization
+- Replay system enhancements
+- Settings/configuration
+- Testing and balancing
 
-**Estimated**: 2-3 weeks
+**Estimated**: 1-2 weeks
 
 ---
 

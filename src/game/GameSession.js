@@ -1,6 +1,9 @@
 import { DialogueSystem } from '../systems/dialogue/DialogueSystem.js';
+import { ConversationManager } from '../systems/dialogue/ConversationManager.js';
 import { QuestManager } from '../systems/quest/QuestManager.js';
 import { QuestGenerator } from '../systems/quest/QuestGenerator.js';
+import { QuestDetector } from '../systems/quest/QuestDetector.js';
+import { QuestContextBuilder } from '../systems/quest/QuestContextBuilder.js';
 import { SeedManager } from '../services/SeedManager.js';
 import { EventBus } from '../services/EventBus.js';
 
@@ -22,12 +25,24 @@ export class GameSession {
       timeout: options.timeout || 60000
     });
     
+    this.conversationManager = new ConversationManager({
+      seedManager: this.seedManager,
+      model: options.model || 'llama3.1:8b',
+      temperature: options.temperature || 0.8,
+      timeout: options.timeout || 60000
+    });
+    
     this.questManager = new QuestManager();
     this.questGenerator = new QuestGenerator({
       model: options.model || 'llama3.1:8b',
       temperature: 0.7,
       seedManager: this.seedManager
     });
+    this.questDetector = new QuestDetector({
+      model: options.model || 'llama3.1:8b',
+      seedManager: this.seedManager
+    });
+    this.questContextBuilder = new QuestContextBuilder(this.questManager);
     
     this.setupEventHandlers();
 
@@ -94,20 +109,33 @@ export class GameSession {
     if (!npc) throw new Error(`Character ${npcId} not found`);
     if (!this.protagonist) throw new Error('No protagonist set');
 
+    // Add quest context for the NPC
+    const questContext = this.questContextBuilder.buildShortSummary(npc, this.protagonist);
+    
     return await this.dialogueSystem.startConversation(npc, this.protagonist, {
       ...options,
-      frame: this.frame
+      frame: this.frame,
+      questContext
     });
   }
 
   async addConversationTurn(conversationId, speakerId, input, options = {}) {
+    const npc = this.getCharacter(speakerId);
+    
+    // Add quest context for the NPC
+    let questContext = '';
+    if (npc && !npc.isProtagonist()) {
+      questContext = this.questContextBuilder.buildShortSummary(npc, this.protagonist);
+    }
+    
     const response = await this.dialogueSystem.addTurn(conversationId, speakerId, input, {
       ...options,
-      frame: this.frame
+      frame: this.frame,
+      questContext
     });
     
     if (this.autoDetectQuests && response.text) {
-      await this.checkForQuestInDialogue(speakerId, response.text, conversationId);
+      await this.checkForQuestInDialogueEnhanced(speakerId, response.text, conversationId);
     }
     
     return response;
@@ -137,6 +165,44 @@ export class GameSession {
     return null;
   }
 
+  async checkForQuestInDialogueEnhanced(npcId, dialogue, conversationId) {
+    const npc = this.getCharacter(npcId);
+    if (!npc || npc.isProtagonist()) return null;
+
+    const context = {
+      frame: this.frame,
+      relationship: npc.relationships.getRelationshipLevel(this.protagonist?.id),
+      memories: npc.memory.getRecentMemories(5)
+    };
+
+    // Use enhanced detector
+    const detection = await this.questDetector.analyzeDialogue(npc, dialogue, context);
+    
+    if (detection.hasQuest && detection.confidence >= 60) {
+      const questData = await this.questGenerator.generateQuestFromContext(npc, dialogue, context);
+      questData.conversationId = conversationId;
+      questData.frame = this.frame;
+      questData.metadata = {
+        ...questData.metadata,
+        detectionConfidence: detection.confidence,
+        questType: detection.questType,
+        urgency: detection.urgency
+      };
+      
+      const questId = this.questManager.createQuest(questData);
+      
+      // Add quest to NPC's memory
+      npc.memory.addMemory('quest_given', `I asked ${this.protagonist.name} to help with: ${questData.title}`, {
+        importance: 70,
+        questId
+      });
+      
+      return questId;
+    }
+    
+    return null;
+  }
+
   async completeQuest(questId) {
     return this.questManager.completeQuest(questId);
   }
@@ -147,6 +213,77 @@ export class GameSession {
 
   getQuestsByNPC(npcId) {
     return this.questManager.getQuestsByGiver(npcId);
+  }
+
+  // ===== GROUP CONVERSATION METHODS (Phase 5.2) =====
+
+  async startGroupConversation(participantIds, options = {}) {
+    const participants = participantIds
+      .map(id => this.getCharacter(id))
+      .filter(char => char);
+    
+    if (participants.length < 2) {
+      throw new Error('Group conversation requires at least 2 participants');
+    }
+
+    const conversationId = await this.conversationManager.startGroupConversation(participants, {
+      ...options,
+      frame: this.frame
+    });
+
+    return conversationId;
+  }
+
+  async addGroupConversationTurn(conversationId, speakerId, input, options = {}) {
+    const npc = this.getCharacter(speakerId);
+    
+    // Add quest context for the NPC
+    let questContext = '';
+    if (npc && !npc.isProtagonist()) {
+      questContext = this.questContextBuilder.buildShortSummary(npc, this.protagonist);
+    }
+
+    const response = await this.conversationManager.addGroupTurn(conversationId, speakerId, input, {
+      ...options,
+      frame: this.frame,
+      questContext
+    });
+
+    // Quest detection in group conversations
+    if (this.autoDetectQuests && response.text && npc) {
+      await this.checkForQuestInDialogueEnhanced(speakerId, response.text, conversationId);
+    }
+
+    return response;
+  }
+
+  addParticipantToConversation(conversationId, characterId) {
+    const character = this.getCharacter(characterId);
+    if (!character) {
+      throw new Error(`Character ${characterId} not found`);
+    }
+
+    return this.conversationManager.addParticipant(conversationId, character);
+  }
+
+  removeParticipantFromConversation(conversationId, characterId) {
+    return this.conversationManager.removeParticipant(conversationId, characterId);
+  }
+
+  getGroupConversation(conversationId) {
+    return this.conversationManager.getConversation(conversationId);
+  }
+
+  getActiveGroupConversations() {
+    return this.conversationManager.getActiveConversations();
+  }
+
+  endGroupConversation(conversationId) {
+    return this.conversationManager.endConversation(conversationId);
+  }
+
+  suggestNextSpeaker(conversationId, currentSpeakerId = null) {
+    return this.conversationManager.suggestNextSpeaker(conversationId, currentSpeakerId);
   }
 
   endConversation(conversationId) {

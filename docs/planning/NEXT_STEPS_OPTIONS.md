@@ -304,62 +304,79 @@ Grok: "It's about the thefts. I found something."
 
 ---
 
-## 📊 My Recommended Priority Order
+## 📊 Recommended Priority Order (Text-Driven Focus)
 
-### Phase 1: Core Enhancement (Pick ONE)
-**Best First Choice: Option A - Deep Dialogue Enhancement**
+### Phase 1: Deep Dialogue Enhancement ⭐ PRIORITY
+**Option A - Quest System + Enhanced Dialogue**
 - Builds on your strength
-- Tests LLM capabilities
+- Tests LLM capabilities deeply
 - Most unique value proposition
-- Pure fun immediately
+- Pure narrative gameplay
+- **Status**: START HERE
 
-### Phase 2: World Building
-**Option B - Locations & Movement**
-- Natural next step
+### Phase 2: World Building (Conceptual)
+**Option B - Locations (Non-Spatial)**
+- Named locations with NPC schedules
+- Travel time, not pathfinding
+- Location-aware dialogue
 - Makes world feel bigger
-- Easy win
+- **Approach**: Conceptual, not graphical
 
-### Phase 3: Make it Beautiful
-**Option C - Web UI**
-- Professional presentation
-- Share with others
-- Portfolio piece
+### Phase 3: Backend System Integration
+**Inventory + Combat as Narrative**
+- Systems exist but emerge through dialogue
+- NPCs reference items/combat naturally
+- Stats influence dialogue options
+- No explicit UI panels
+- **Philosophy**: Backend-only, LLM-surfaced
 
-### Phase 4: Advanced AI
-**Option D - Autonomous NPCs**
-- Cutting edge feature
-- Research potential
-- Ultimate goal
+### Phase 4: Advanced Dialogue Features
+**Option D - Group Conversations + NPC Autonomy**
+- 3+ character conversations
+- NPCs talk to each other
+- Gossip networks
+- Emergent narratives
+- **Goal**: Living world through text
 
 ### Infrastructure (Parallel)
-**Option E - Save/Load**
+**Option E - Save/Load + Replay**
 - Build alongside other features
+- Essential for testing
 - Not main focus but important
+
+### NOT Pursuing
+**Option C - Graphical UI** ❌
+- Rejected in favor of pure text
+- No Phaser, React panels, or sprites
+- Text-driven design philosophy
 
 ---
 
-## 🎯 My Top 3 Recommendations
+## 🎯 Top 3 Recommendations (Updated for Text-Driven Design)
 
-### 🥇 #1: Option A - Deep Dialogue Enhancement + Quests
-**Best for**: Unique gameplay, immediate fun, testing LLM limits
+### 🥇 #1: Deep Dialogue Enhancement + Quest System
+**Best for**: Unique gameplay, narrative emergence, testing LLM limits
 **Estimated time**: 1-2 weeks
-**Next session**: Build quest system from dialogue
+**Next session**: Build quest detection and tracking from natural dialogue
+**Design**: Quests emerge through conversation, tracked in backend, referenced by NPCs
 
-This is the **most exciting and unique** path. It plays to your strengths and creates something few other games have - truly emergent quest lines from natural conversation.
+This is the **most exciting and unique** path. It plays to your strengths and creates something few other games have - truly emergent quest lines from natural conversation without explicit quest UI.
 
-### 🥈 #2: Option B + A - Locations + Quests Together
-**Best for**: Feeling like a "real game" quickly
-**Estimated time**: 2 weeks
-**Next session**: Build 4-5 locations with unique NPCs
+### 🥈 #2: Conceptual Locations + NPC Schedules
+**Best for**: World-building without spatial complexity
+**Estimated time**: 1 week
+**Next session**: Build location system with time-based NPC presence
+**Design**: Locations are named places, not spatial grids. Travel takes time, NPCs move on schedules
 
-Combining locations with the quest system gives you a complete "vertical slice" of gameplay - talk, explore, investigate, solve quests.
+Combining conceptual locations with the quest system gives you a complete gameplay loop - talk, travel, investigate, discover - all through text narrative.
 
-### 🥉 #3: Option C - Visual Novel UI
-**Best for**: Polish, shareability, portfolio
-**Estimated time**: 2-3 weeks
-**Next session**: Set up React app with existing dialogue
+### 🥉 #3: Backend System Integration (Inventory + Combat)
+**Best for**: Mechanical depth emerging through narrative
+**Estimated time**: 1-2 weeks
+**Next session**: Connect inventory/combat backends to LLM prompts
+**Design**: NPCs reference your items/wounds, stats unlock dialogue paths
 
-If you want to **show this off** or **share it**, this is the path. The dialogue system already works - just make it pretty!
+Makes the backend systems come alive through natural conversation. NPCs notice what you carry, comment on injuries, react to your reputation - all narratively.
 
 ---
 

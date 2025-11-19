@@ -1,233 +1,263 @@
-# OllamaRPG - Web Game Concept (Future Vision)
+# OllamaRPG - Design Philosophy & Future Vision
 
-**Last Updated**: November 17, 2025
-**Status**: ⚠️ **FUTURE VISION** - Not Yet Implemented
-**Current State**: CLI-only dialogue game
-**Note**: This document describes the PLANNED web/Electron version. See `GAME_CONCEPT_AND_DESIGN.md` for current implementation.
+**Last Updated**: November 19, 2025
+**Status**: ⚠️ **TEXT-DRIVEN DESIGN** - Core Philosophy Document
+**Current State**: CLI dialogue game with emergent narrative
+**Note**: This document describes the design philosophy and optional future enhancements. See `GAME_CONCEPT_AND_DESIGN.md` for current implementation.
 
 ---
 
-## Important Notice
+## Core Design Philosophy
 
-**This document describes a FUTURE version of OllamaRPG that is not yet implemented.**
+**OllamaRPG is a TEXT-DRIVEN RPG where game systems exist in the background and emerge through natural narrative.**
 
-**What IS working now:**
+### Design Principles
+
+1. **Text-First, Always**: All game information comes through dialogue and narration
+2. **Backend Systems**: Inventory, combat, stats exist but aren't displayed as UI elements
+3. **Emergent Gameplay**: NPCs refer to items, combat happens narratively, stats influence dialogue
+4. **LLM-Driven**: The AI weaves game mechanics into natural conversation
+5. **No Explicit Panels**: No inventory screens, stat displays, or combat UI
+
+### What IS working now:
 - ✅ CLI dialogue game with 10 NPCs
 - ✅ LLM-powered conversations
 - ✅ Memory and relationships
 - ✅ Game Master narration
 - ✅ Replay logging
+- ✅ Backend systems (inventory, combat frameworks exist)
 
-**What is NOT working (this document's scope):**
-- ❌ Web UI / Electron app
-- ❌ Phaser rendering
-- ❌ React components
-- ❌ Movement/pathfinding
-- ❌ GOAP autonomous AI
-- ❌ Observer-mode gameplay
+### What is NOT planned (rejected approaches):
+- ❌ Graphical inventory panels
+- ❌ Explicit stat displays
+- ❌ Combat UI with health bars
+- ❌ Phaser rendering / sprites
+- ❌ React UI panels
+- ❌ Observer-mode with graphics
 
 See `old/WEB_GAME_CONCEPT.md` for the complete original vision.
 
 ---
 
-## Future Vision Summary
+## Text-Driven Design Examples
 
-When fully implemented, OllamaRPG will be:
+### How Game Systems Emerge Through Narrative
 
-### Autonomous Observer Game
-
-**Concept**: Watch AI characters live their lives
-- AI protagonist makes all decisions
-- NPCs interact autonomously
-- You observe, don't control
-- Camera follows action
-- Speed controls for pacing
-
-### Technology Stack (Planned)
-
+**Inventory** - NPCs mention items naturally:
 ```
-Platform:     Electron (desktop app)
-Rendering:    Phaser 3 (2D game engine)
-UI:           React + Zustand
-Styling:      TailwindCSS
-AI:           GOAP planner + Ollama LLM
-Pathfinding:  PathFinding.js (A*)
+Mara: "I see you're carrying that old sword Grok made.
+       It's seen better days, hasn't it?"
+
+Grok: "Bring me three iron ingots and I'll forge you
+       something proper. None of that rusty nonsense."
 ```
 
-### Observer Controls (Planned)
+**Combat** - Battles described narratively:
+```
+Game Master: The bandit lunges with his dagger. Your
+             reflexes kick in - you parry and counter.
+             The fight is over in seconds.
+
+Aldric: "I heard about your scuffle near the forest.
+         Word travels fast. You handled yourself well."
+```
+
+**Stats** - Abilities influence dialogue options:
+```
+[Your high Intelligence allows you to notice...]
+You: "That symbol on the wall - it's Old Elvish, isn't it?"
+Thom: *raises eyebrow* "Few people would recognize that.
+       You're more educated than you let on."
+```
+
+**Quests** - Emerge from conversation context:
+```
+Mara: "Someone's been stealing from my supplies..."
+[This information now sits in your memory]
+
+Later, with Finn:
+You: "Do you know anything about thefts at the tavern?"
+Finn: *looks nervous* "I... might have seen something."
+```
+
+### Technology Stack (Current)
 
 ```
-Camera:
-- Click character to follow
-- Mouse drag to pan
-- Wheel to zoom
-- ESC for free camera
-
-Playback:
-- Space: Pause/Resume
-- 1-5: Speed control (0.25x to 5x)
-- Arrows: Rewind/Fast-forward
-
-Inspection:
-- Click character: View info panel
-- M: Memory inspector
-- R: Relationship viewer
-- T: Toggle thought bubbles
-- D: Debug panel
+Platform:     Node.js CLI
+Rendering:    Pure text (terminal)
+UI:           ANSI colors + formatting
+Styling:      None needed
+AI:           Ollama LLM (llama3.1:8b)
+State:        In-memory game systems
 ```
 
 ---
 
-## Implementation Roadmap
+## Implementation Roadmap (Text-Driven Focus)
 
-### Phase 7: Web UI (Planned - 2-3 weeks)
-
-**What's Needed:**
-
-1. **Phaser Integration**
-   ```javascript
-   - World scene with tilemap
-   - Character sprites
-   - Camera system
-   - Animations
-   ```
-
-2. **React UI Layer**
-   ```javascript
-   - HUD components
-   - Character panels
-   - Thought bubbles
-   - Timeline visualization
-   - Menu system
-   ```
-
-3. **Electron Packaging**
-   ```javascript
-   - Main process setup
-   - IPC communication
-   - Window management
-   - Menu bar
-   ```
-
-4. **State Bridge**
-   ```javascript
-   - Game state → React
-   - UI events → Game
-   - Real-time updates
-   ```
-
-### Phase 5: Movement System (Needed first - 1-2 weeks)
-
-**Prerequisites:**
-
-1. **PathFinding Integration**
-   ```javascript
-   - Grid-based world map
-   - Navigation mesh
-   - A* pathfinding
-   - Collision detection
-   ```
-
-2. **Spatial World**
-   ```javascript
-   - Tile-based map
-   - Buildings with interiors
-   - Doors and transitions
-   - Location tracking
-   ```
-
-3. **Character Movement**
-   ```javascript
-   - Position components
-   - Movement system
-   - Path following
-   - Smooth interpolation
-   ```
-
-### Phase 6: GOAP System (Needed for autonomy - 1-2 weeks)
+### Phase 5: Deep Dialogue & Quest System (1-2 weeks) ⭐ PRIORITY
 
 **What's Needed:**
 
-1. **GOAP Planner**
+1. **Quest System Integration**
    ```javascript
-   - A* in state space
-   - Goal prioritization
-   - Plan caching
-   - Replanning logic
+   - Quests emerge from dialogue naturally
+   - NPCs track quest state in memory
+   - Quest completion affects relationships
+   - Rewards given through narrative
    ```
 
-2. **Action Library**
+2. **Enhanced Dialogue Context**
    ```javascript
-   - MoveTo action
-   - TalkTo action
-   - EnterBuilding action
-   - ExitBuilding action
-   - Wait action
-   - Explore action
+   - NPCs reference backend inventory state
+   - Combat outcomes influence conversations
+   - Stats affect available dialogue options
+   - Time/weather affects NPC mood
    ```
 
-3. **Goal Generation**
+3. **Group Conversations**
    ```javascript
-   - LLM generates high-level goals
-   - GOAP creates action sequence
-   - Execute plan step-by-step
-   - Adapt to changes
+   - 3+ character conversations
+   - NPCs talk to each other
+   - Player witnesses interactions
+   - Overhear secrets and gossip
+   ```
+
+4. **Emergent Narrative Systems**
+   ```javascript
+   - NPCs gossip about player actions
+   - Reputation system affects dialogue
+   - Events propagate through NPC network
+   - Story arcs track player choices
+   ```
+
+### Phase 6: Location & World Building (1 week)
+
+**What's Needed:**
+
+1. **Conceptual Location System** (not spatial pathfinding)
+   ```javascript
+   - Named locations (tavern, forge, market, etc)
+   - Travel time between locations
+   - Different NPCs at different places
+   - Time-based NPC schedules
+   ```
+
+2. **Location-Aware Dialogue**
+   ```javascript
+   - NPCs comment on current location
+   - Secrets discovered in specific places
+   - Environmental descriptions
+   - Points of interest to examine
+   ```
+
+3. **Dynamic NPC Presence**
+   ```javascript
+   - NPCs move based on schedule
+   - Track down specific NPCs
+   - Chance encounters
+   - Location-specific events
+   ```
+
+### Phase 7: Backend Systems Integration (1-2 weeks)
+
+**What's Needed:**
+
+1. **Inventory Backend**
+   ```javascript
+   - Items tracked internally
+   - NPCs reference what player carries
+   - Weight/capacity affects mobility
+   - Items influence dialogue options
+   ```
+
+2. **Narrative Combat**
+   ```javascript
+   - Combat resolved through LLM narration
+   - Stats determine outcome probability
+   - NPCs react to combat reputation
+   - Injuries mentioned in dialogue
+   ```
+
+3. **Character Progression**
+   ```javascript
+   - Skills improve through use
+   - NPCs notice character growth
+   - Abilities unlock dialogue paths
+   - Reputation affects quest availability
    ```
 
 ---
 
 ## Current vs Future
 
-### What Works Now (CLI Version)
+### What Works Now ✅
 
 ```
-✅ Dialogue System
-   - Natural conversations
-   - 20+ turn coherence
-   - Personality-driven
-
-✅ Character AI
+✅ Core Dialogue System
+   - Natural conversations (20+ turns)
+   - Personality-driven responses
    - Memory & relationships
    - Emotional states
-   - Personality traits
 
-✅ Game Master
-   - Scene narration
+✅ Game Master Narration
+   - Scene descriptions
    - Event generation
    - Story orchestration
+   - Adaptive pacing
 
-✅ Replay System
-   - Event logging
-   - LLM call recording
-   - Viewing tools
+✅ Backend Systems (Framework)
+   - Inventory data structures
+   - Combat framework
+   - Quest tracking
+   - Replay logging
+
+✅ Text-First Interface
+   - CLI with ANSI colors
+   - Pure narrative gameplay
+   - No graphics needed
 ```
 
-### What's Planned (Web Version)
+### What's Being Built Next 🔄
 
 ```
-❌ Visual Rendering
-   - Phaser scenes
-   - Character sprites
-   - Map tileset
-   - Animations
+🔄 Deep Dialogue Enhancement
+   - Quests from conversation
+   - Group conversations
+   - NPC gossip networks
+   - Context-aware responses
 
-❌ Movement
-   - Spatial navigation
-   - Pathfinding
-   - Building transitions
-   - World exploration
+🔄 Location System
+   - Conceptual locations (not spatial)
+   - NPC schedules
+   - Travel time
+   - Location-based events
 
-❌ GOAP Autonomy
-   - AI protagonist
-   - Multi-step planning
-   - Goal pursuit
-   - Emergent behavior
+🔄 Backend Integration
+   - Inventory in dialogue
+   - Narrative combat
+   - Stat-influenced options
+   - Character progression
+```
+
+### What's NOT Planned ❌
+
+```
+❌ Graphical Elements
+   - NO Phaser/sprites
+   - NO visual inventory panels
+   - NO combat UI
+   - NO stat displays
+
+❌ Spatial Systems
+   - NO pathfinding/grid movement
+   - NO tile-based maps
+   - NO camera controls
+   - Locations are conceptual only
 
 ❌ Observer Mode
-   - Camera controls
-   - Speed controls
-   - UI panels
-   - Timeline
+   - Game remains player-driven
+   - Text-based interaction only
 ```
 
 ---
