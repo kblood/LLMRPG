@@ -11,7 +11,8 @@ export const ActionType = {
   SEARCH: 'search',
   REST: 'rest',
   TRADE: 'trade',
-  TRAVEL: 'travel'
+  TRAVEL: 'travel',
+  COMBAT: 'combat'
 };
 
 /**
@@ -24,6 +25,7 @@ export const ActionType = {
  * - REST: Recover health/stamina/magic
  * - TRADE: Buy/sell items with merchants
  * - TRAVEL: Move between locations
+ * - COMBAT: Engage in combat with hostile NPCs/creatures
  */
 export class ActionSystem {
   constructor(gameMaster, session, options = {}) {
@@ -119,6 +121,9 @@ export class ActionSystem {
         break;
       case ActionType.TRAVEL:
         result = await this._executeTravel(action, protagonist, context);
+        break;
+      case ActionType.COMBAT:
+        result = await this._executeCombat(action, protagonist, context);
         break;
       default:
         this.logger.warn(`Unknown action type: ${action.type}`);
@@ -510,6 +515,22 @@ Your decision:`;
       narration: narration,
       timeAdvanced: timeAdvanced,
       destination: context.destination || 'unknown location'
+    };
+  }
+
+  /**
+   * Execute combat action (handled by CombatSystem)
+   */
+  async _executeCombat(action, protagonist, context) {
+    this.logger.info('Executing COMBAT action');
+
+    // This is handled by the CombatSystem in GameBackend
+    // Just return success - the actual combat logic is in GameBackend
+    return {
+      success: true,
+      type: ActionType.COMBAT,
+      message: 'Entering combat',
+      timeAdvanced: 0 // Time advancement handled by combat system
     };
   }
 

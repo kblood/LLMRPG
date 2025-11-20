@@ -1328,6 +1328,178 @@ Narration:`;
         return `${protagonist.name} sets out on the road toward ${destination}. The journey passes through familiar countryside, each step bringing them closer to their goal. Time and distance fall away beneath determined feet.`;
     }
 
+    // ============ Combat Narration Methods ============
+
+    /**
+     * Generate narration for combat start
+     */
+    async generateCombatStartNarration(protagonist, enemies, encounterData = {}) {
+        this.logger.info('Generating combat start narration');
+
+        const enemyNames = enemies.length === 1
+            ? enemies[0].name
+            : enemies.length === 2
+            ? `${enemies[0].name} and ${enemies[1].name}`
+            : `${enemies.length} enemies`;
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+${protagonist.name} has encountered ${enemyNames} in combat!
+
+Encounter Type: ${encounterData.encounterType || 'chance_encounter'}
+Location: ${encounterData.location?.name || 'unknown location'}
+Time of Day: ${encounterData.timeOfDay || 'unknown'}
+
+Enemy Details:
+${enemies.map(e => `- ${e.name}: ${e.backstory || 'A hostile creature'}`).join('\n')}
+
+Context:
+${encounterData.description || `${protagonist.name} faces ${enemyNames} in battle!`}
+
+Provide a dramatic, atmospheric narration (3-4 sentences) that:
+1. Describes the moment combat begins
+2. Sets the tension and stakes
+3. Describes the enemies' appearance and demeanor
+4. Creates excitement for the battle ahead
+
+Make it cinematic and intense!
+
+Combat Start Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 200,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate combat start narration:', error);
+            return this._getFallbackCombatStartNarration(protagonist, enemies, encounterData);
+        }
+    }
+
+    /**
+     * Generate narration for a combat round
+     */
+    async generateCombatRoundNarration(roundNumber, actions, results) {
+        this.logger.info(`Generating combat round ${roundNumber} narration`);
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG combat.
+
+Round ${roundNumber} of combat has just occurred.
+
+Actions taken:
+${actions.map(a => `- ${a.character} used ${a.action}${a.target ? ` on ${a.target}` : ''}`).join('\n')}
+
+Results:
+${results.map(r => {
+    const result = r.result;
+    if (result.hit !== undefined) {
+        if (result.hit) {
+            return `- ${r.character}'s attack ${result.critical ? 'CRITICALLY ' : ''}hits for ${result.damage} damage!`;
+        } else {
+            return `- ${r.character}'s attack misses!`;
+        }
+    } else if (result.message) {
+        return `- ${result.message}`;
+    }
+    return `- ${r.character} acted`;
+}).join('\n')}
+
+Provide a brief, exciting narration (2-3 sentences) that:
+1. Summarizes the key moments of this round
+2. Maintains combat tension and energy
+3. Focuses on the most dramatic action
+4. Keeps the pace quick and engaging
+
+Round Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 150,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate combat round narration:', error);
+            return this._getFallbackCombatRoundNarration(roundNumber, actions, results);
+        }
+    }
+
+    /**
+     * Generate narration for combat end
+     */
+    async generateCombatEndNarration(protagonist, outcome, combatData = {}) {
+        this.logger.info(`Generating combat end narration (${outcome})`);
+
+        const outcomeDesc = {
+            victory: `${protagonist.name} emerges victorious`,
+            defeat: `${protagonist.name} falls in battle`,
+            fled: `${protagonist.name} flees from combat`,
+            timeout: `The battle reaches a stalemate`
+        }[outcome] || `Combat ends`;
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+Combat has ended: ${outcomeDesc}
+
+Battle Details:
+- Rounds: ${combatData.rounds || 'several'}
+- Outcome: ${outcome}
+
+Provide a dramatic conclusion narration (2-4 sentences) that:
+1. Describes how the combat ended
+2. Captures the emotional weight of ${outcome}
+3. ${outcome === 'victory' ? 'Celebrates the triumph' : outcome === 'defeat' ? 'Acknowledges the loss with hope for recovery' : 'Describes the resolution'}
+4. Transitions back to the story
+
+Make it ${outcome === 'victory' ? 'triumphant' : outcome === 'defeat' ? 'somber but hopeful' : 'reflective'}!
+
+Combat End Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 200,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate combat end narration:', error);
+            return this._getFallbackCombatEndNarration(protagonist, outcome, combatData);
+        }
+    }
+
+    // ============ Fallback Combat Narrations ============
+
+    _getFallbackCombatStartNarration(protagonist, enemies, encounterData) {
+        const enemyNames = enemies.length === 1
+            ? `a ${enemies[0].name}`
+            : `${enemies.length} enemies`;
+
+        return `${protagonist.name} finds themselves face to face with ${enemyNames}! The air crackles with tension as weapons are drawn. There is no avoiding this confrontation. Battle is joined!`;
+    }
+
+    _getFallbackCombatRoundNarration(roundNumber, actions, results) {
+        return `Round ${roundNumber} of combat rages on. Blows are exchanged, each combatant seeking advantage. The battle's outcome remains uncertain.`;
+    }
+
+    _getFallbackCombatEndNarration(protagonist, outcome, combatData) {
+        const endings = {
+            victory: `${protagonist.name} stands victorious over their foes! The battle is won, though not without cost. The path forward is clear once more.`,
+            defeat: `${protagonist.name} falls to the ground, consciousness fading. The battle is lost, but this is not the end. They will rise again.`,
+            fled: `${protagonist.name} breaks away from combat, escaping to safety. Sometimes discretion is the better part of valor.`,
+            timeout: `The battle drags on inconclusively. Both sides disengage, exhausted. Another day, another fight.`
+        };
+
+        return endings[outcome] || `Combat comes to an end. ${protagonist.name} continues their journey.`;
+    }
+
     // ============ Public API ============
     
     /**

@@ -1,6 +1,8 @@
 import { GameSession } from '../../src/game/GameSession.js';
 import { GameMaster } from '../../src/systems/GameMaster.js';
 import { ActionSystem } from '../../src/systems/actions/ActionSystem.js';
+import { CombatEncounterSystem } from '../../src/systems/combat/CombatEncounterSystem.js';
+import { CombatSystem } from '../../src/systems/combat/CombatSystem.js';
 import { OllamaService } from '../../src/services/OllamaService.js';
 import { EventBus } from '../../src/services/EventBus.js';
 import { Character } from '../../src/entities/Character.js';
@@ -9,6 +11,7 @@ import { CharacterStats } from '../../src/systems/stats/CharacterStats.js';
 import { Inventory } from '../../src/systems/items/Inventory.js';
 import { Equipment } from '../../src/systems/items/Equipment.js';
 import { AbilityManager } from '../../src/systems/abilities/AbilityManager.js';
+import { CombatAI } from '../../src/systems/combat/CombatAI.js';
 import { createAllNPCs } from '../../src/data/npc-roster.js';
 import { ReplayLogger } from '../../src/replay/ReplayLogger.js';
 import { ReplayFile } from '../../src/replay/ReplayFile.js';
@@ -23,6 +26,8 @@ export class GameBackend {
     this.session = null;
     this.gameMaster = null;
     this.actionSystem = null;
+    this.combatEncounterSystem = null;
+    this.combatSystem = null;
     this.ollama = null;
     this.eventBus = null;
     this.npcs = null;
@@ -123,6 +128,19 @@ export class GameBackend {
 
       // Initialize Action System
       this.actionSystem = new ActionSystem(this.gameMaster, this.session);
+
+      // Initialize Combat Systems
+      this.combatEncounterSystem = new CombatEncounterSystem(this.session, {
+        baseEncounterChance: 0.2 // 20% base encounter chance
+      });
+      this.combatSystem = new CombatSystem(this.gameMaster, this.session, {
+        pauseBetweenRounds: 0 // No pause in autonomous mode
+      });
+
+      // Add combat AI to player
+      this.player.combatAI = new CombatAI({
+        behavior: 'balanced'
+      });
 
       // Initialize Replay Logger
       this.replayLogger = new ReplayLogger(this.session.seed);
@@ -600,6 +618,114 @@ export class GameBackend {
           const postConvoTimeDelta = 10 + Math.floor(Math.random() * 15);
           const postConvoTime = this.session.tick(postConvoTimeDelta);
           this._sendToUI('game:time-update', postConvoTime);
+        } else if (action.type === 'investigate' || action.type === 'travel' || action.type === 'search') {
+          // Check for combat encounter when investigating, traveling, or searching
+          const location = {
+            name: context.location || 'Millhaven',
+            dangerLevel: this._getLocationDangerLevel(context.location || 'Millhaven')
+          };
+
+          const timeOfDay = this.session.getTimeOfDay();
+          const encounter = this.combatEncounterSystem.generateCombatEncounter(
+            this.player,
+            location,
+            timeOfDay
+          );
+
+          if (encounter) {
+            console.log('[GameBackend] Combat encounter triggered!');
+
+            // Notify UI
+            this._sendToUI('autonomous:combat-encounter', {
+              description: encounter.description,
+              enemies: encounter.enemies.map(e => ({
+                name: e.name,
+                level: e.stats.level,
+                hp: e.stats.currentHP,
+                maxHP: e.stats.maxHP
+              }))
+            });
+
+            // Wait before starting combat
+            await this._sleep(2000);
+
+            if (!this.autonomousMode) break;
+
+            // Execute combat
+            const combatResult = await this.combatSystem.executeCombat(
+              this.player,
+              encounter.enemies,
+              encounter
+            );
+
+            console.log(`[GameBackend] Combat ended: ${combatResult.outcome}`);
+
+            // Notify UI of combat result
+            this._sendToUI('autonomous:combat-result', {
+              outcome: combatResult.outcome,
+              rounds: combatResult.rounds,
+              narration: combatResult.narration,
+              rewards: combatResult.rewards
+            });
+
+            // Log combat to replay
+            if (this.replayLogger) {
+              this.replayLogger.logEvent(this.session.frame++, 'combat_encounter', {
+                location: location.name,
+                enemies: encounter.enemies.map(e => e.name),
+                outcome: combatResult.outcome,
+                rounds: combatResult.rounds,
+                rewards: combatResult.rewards
+              }, this.player.id);
+            }
+
+            // Wait after combat
+            await this._sleep(this.autonomousConfig.pauseBetweenActions);
+
+            if (!this.autonomousMode) break;
+
+            // Check if player was defeated
+            if (combatResult.outcome === 'defeat') {
+              // Generate narration for respawn
+              this._sendToUI('autonomous:action-result', {
+                type: 'combat_defeat',
+                narration: 'You wake up in a safe place, battered but alive. Your journey continues.'
+              });
+
+              await this._sleep(this.autonomousConfig.pauseBetweenActions);
+            }
+          } else {
+            // Execute action through ActionSystem
+            const result = await this.actionSystem.executeAction(action, this.player, {
+              location: 'Millhaven',
+              activeQuest: activeQuest
+            });
+
+            console.log(`[GameBackend] Action executed: ${action.type}, success: ${result.success}`);
+
+            // Send action result to UI
+            this._sendToUI('autonomous:action-result', {
+              type: action.type,
+              result: result,
+              narration: result.narration
+            });
+
+            // Advance time based on action
+            if (result.timeAdvanced) {
+              const actionTime = this.session.tick(result.timeAdvanced);
+              this._sendToUI('game:time-update', actionTime);
+            }
+
+            // Log action to replay
+            if (this.replayLogger) {
+              this.replayLogger.logEvent(this.session.frame++, 'action_performed', {
+                actionType: action.type,
+                reason: action.reason,
+                timeAdvanced: result.timeAdvanced,
+                success: result.success
+              }, this.player.id);
+            }
+          }
         } else {
           // Execute other actions through ActionSystem
           const result = await this.actionSystem.executeAction(action, this.player, {
@@ -1042,6 +1168,44 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
     }
 
     console.log('[GameBackend] World knowledge added to NPCs');
+  }
+
+  /**
+   * Get danger level for a location
+   * @param {string} locationName
+   * @returns {string}
+   * @private
+   */
+  _getLocationDangerLevel(locationName) {
+    // Default safe for village
+    if (locationName === 'Millhaven' || locationName.toLowerCase().includes('village')) {
+      return 'safe';
+    }
+
+    // Check world locations if available
+    if (this.session.world) {
+      // Check dungeons
+      const dungeon = this.session.world.dungeons?.find(d => d.name === locationName);
+      if (dungeon) {
+        return dungeon.danger_level || 'medium';
+      }
+
+      // Check landmarks
+      const landmark = this.session.world.landmarks?.find(l => l.name === locationName);
+      if (landmark) {
+        // Landmarks have moderate danger
+        return 'low';
+      }
+
+      // Check special locations
+      const special = this.session.world.special_locations?.find(s => s.name === locationName);
+      if (special) {
+        return 'medium';
+      }
+    }
+
+    // Default to low danger for unknown locations
+    return 'low';
   }
 
   /**
