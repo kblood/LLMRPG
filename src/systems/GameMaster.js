@@ -381,6 +381,7 @@ Format your response as JSON:
     }
   ],
   "rewards": {
+    "gold": 100,
     "experience": 1000,
     "items": ["potential reward 1"],
     "narrative": "Story impact of completing quest"
@@ -448,6 +449,83 @@ Narration:`;
         } catch (error) {
             this.logger.error('Failed to generate dialogue narration:', error);
             return this._getFallbackDialogueNarration(npc, context);
+        }
+    }
+
+    /**
+     * Generate a narrative transition between conversations/actions
+     * Creates smooth scene transitions that explain what happens between actions
+     *
+     * @param {Object} fromAction - Previous action/conversation data
+     * @param {Object} toAction - Next action/conversation data
+     * @param {number} timeDelta - Time passed in minutes
+     * @returns {Promise<string>} Transition narration
+     */
+    async generateTransition(fromAction, toAction, timeDelta) {
+        this.logger.info(`Generating transition from ${fromAction?.npcName || 'start'} to ${toAction?.npcName || 'end'}`);
+
+        // Calculate time description
+        let timeDescription = '';
+        if (timeDelta < 5) {
+            timeDescription = 'A few moments later';
+        } else if (timeDelta < 15) {
+            timeDescription = 'Shortly afterward';
+        } else if (timeDelta < 30) {
+            timeDescription = 'Some time passes';
+        } else if (timeDelta < 60) {
+            timeDescription = 'Nearly an hour later';
+        } else if (timeDelta < 120) {
+            timeDescription = 'Over an hour passes';
+        } else {
+            const hours = Math.floor(timeDelta / 60);
+            timeDescription = `Several hours later (${hours} hours)`;
+        }
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG. Create a smooth narrative transition between two scenes.
+
+Previous Scene:
+${fromAction ? `- Just finished talking with ${fromAction.npcName} (${fromAction.npcRole})
+- Conversation topics: ${fromAction.topics || 'general discussion'}
+- How it ended: ${fromAction.endReason || 'naturally concluded'}` : '- The journey begins'}
+
+Time Passed: ${timeDescription} (${timeDelta} minutes)
+Time of Day Now: ${toAction.timeOfDay || 'unknown'}
+
+Next Scene:
+- About to approach ${toAction.npcName} (${toAction.npcRole})
+- Location: ${toAction.location || 'the village'}
+
+Write a 2-3 sentence transition that:
+1. Briefly mentions why the previous conversation ended (if applicable)
+2. Describes what ${toAction.playerName || 'the protagonist'} does in between (walking, thinking, observing)
+3. Explains what draws them toward ${toAction.npcName} next
+4. Includes the time passage naturally ("${timeDescription}...")
+5. Creates a sense of continuous narrative flow
+
+Keep it atmospheric and immersive. Focus on the protagonist's internal thoughts or external observations.
+
+Transition:`;
+
+        try {
+            const transition = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 200,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            this.logger.debug('Generated transition narration');
+
+            // Store in narrative memory
+            this.narrativeMemory.push({
+                text: transition,
+                context: { type: 'transition', from: fromAction?.npcName, to: toAction?.npcName },
+                timestamp: Date.now()
+            });
+
+            return transition;
+        } catch (error) {
+            this.logger.error('Failed to generate transition:', error);
+            return this._getFallbackTransition(fromAction, toAction, timeDescription);
         }
     }
     
@@ -822,6 +900,14 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
         return `${npc.name} looks up as you approach ${desc}. They seem ready to talk.`;
     }
 
+    _getFallbackTransition(fromAction, toAction, timeDescription) {
+        if (!fromAction) {
+            return `${timeDescription}, you make your way through the village. Ahead, you notice ${toAction.npcName} and decide to approach them.`;
+        }
+
+        return `${timeDescription}, after parting ways with ${fromAction.npcName}. You continue through the village, your thoughts lingering on the conversation. Soon, you spot ${toAction.npcName} and feel drawn to speak with them.`;
+    }
+
     _getFallbackOpeningNarration(player) {
         return `The road stretches behind ${player.name}, dust settling in the fading light of day. For weeks, whispers and rumors have drawn them forward—tales of something ancient stirring in the quiet village of Millhaven.
 
@@ -1005,6 +1091,7 @@ ${player.name} adjusts their pack and continues forward, each step carrying them
                 }
             ],
             rewards: {
+                gold: 150,
                 experience: 1000,
                 items: ["Ancient Medallion"],
                 narrative: "Uncovering the truth will reveal the ancient history of Millhaven and your connection to it"
@@ -1012,7 +1099,235 @@ ${player.name} adjusts their pack and continues forward, each step carrying them
             createdAt: Date.now()
         };
     }
-    
+
+    // ============ Action Narration Methods ============
+
+    /**
+     * Generate narration for investigation action
+     */
+    async generateInvestigationNarration(protagonist, location, context = {}) {
+        this.logger.info(`Generating investigation narration for ${location}`);
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+${protagonist.name} is investigating ${location}.
+
+Context:
+- Time of Day: ${context.timeOfDay || 'unknown'}
+- Weather: ${context.weather || 'clear'}
+- Reason: ${context.reason || 'exploring the area'}
+${context.activeQuest ? `- Active Quest: ${context.activeQuest.title}` : ''}
+
+Provide a vivid narration (2-4 sentences) describing:
+1. What ${protagonist.name} sees as they investigate
+2. Any interesting details about the location
+3. The atmosphere and mood of the moment
+4. Subtle hints or clues they might discover
+
+Make it atmospheric and immersive. Keep it relevant to their quest if they have one.
+
+Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 200,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate investigation narration:', error);
+            return this._getFallbackInvestigationNarration(protagonist, location, context);
+        }
+    }
+
+    /**
+     * Generate narration for search action
+     */
+    async generateSearchNarration(protagonist, location, context = {}) {
+        this.logger.info(`Generating search narration for ${location}`);
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+${protagonist.name} is carefully searching ${location}.
+
+Context:
+- Time of Day: ${context.timeOfDay || 'unknown'}
+- Weather: ${context.weather || 'clear'}
+- Reason: ${context.reason || 'looking for items or clues'}
+
+Provide a narration (2-3 sentences) describing:
+1. How ${protagonist.name} searches the area
+2. What they examine and where they look
+3. The thoroughness of their search
+4. Whether they find anything interesting (be subtle)
+
+Make it feel methodical and purposeful.
+
+Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.8,
+                maxTokens: 150,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate search narration:', error);
+            return this._getFallbackSearchNarration(protagonist, location, context);
+        }
+    }
+
+    /**
+     * Generate narration for rest action
+     */
+    async generateRestNarration(protagonist, location, context = {}) {
+        this.logger.info(`Generating rest narration for ${location}`);
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+${protagonist.name} is taking time to rest in ${location}.
+
+Context:
+- Time of Day: ${context.timeOfDay || 'unknown'}
+- Weather: ${context.weather || 'clear'}
+- Reason: ${context.reason || 'recovering energy'}
+
+Provide a peaceful narration (2-3 sentences) describing:
+1. Where ${protagonist.name} finds to rest
+2. The act of resting and recovering
+3. Their thoughts or reflections during this quiet moment
+4. The sense of restoration and renewal
+
+Make it calm and restorative.
+
+Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.75,
+                maxTokens: 150,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate rest narration:', error);
+            return this._getFallbackRestNarration(protagonist, location, context);
+        }
+    }
+
+    /**
+     * Generate narration for trade action
+     */
+    async generateTradeNarration(protagonist, location, context = {}) {
+        this.logger.info(`Generating trade narration for ${location}`);
+
+        const merchantName = context.merchant?.name || 'a local merchant';
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+${protagonist.name} is engaging in trade with ${merchantName} in ${location}.
+
+Context:
+- Time of Day: ${context.timeOfDay || 'unknown'}
+- Reason: ${context.reason || 'buying or selling goods'}
+
+Provide a narration (2-3 sentences) describing:
+1. The merchant and their wares
+2. The haggling or negotiation process
+3. The atmosphere of the trade
+
+Make it feel commercial and transactional but with personality.
+
+Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.8,
+                maxTokens: 150,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate trade narration:', error);
+            return this._getFallbackTradeNarration(protagonist, location, context);
+        }
+    }
+
+    /**
+     * Generate narration for travel action
+     */
+    async generateTravelNarration(protagonist, destination, context = {}) {
+        this.logger.info(`Generating travel narration to ${destination}`);
+
+        const prompt = `You are ${this.personality.name}, the narrator of this RPG.
+
+${protagonist.name} is traveling to ${destination}.
+
+Context:
+- Time of Day: ${context.timeOfDay || 'unknown'}
+- Weather: ${context.weather || 'clear'}
+- Reason: ${context.reason || 'journeying to a new location'}
+
+Provide a narration (2-4 sentences) describing:
+1. The journey and the landscape they pass through
+2. The distance and time it takes
+3. Any encounters or sights along the way
+4. Their arrival at the destination
+
+Make it feel like an epic journey, even if short.
+
+Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 200,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate travel narration:', error);
+            return this._getFallbackTravelNarration(protagonist, destination, context);
+        }
+    }
+
+    // ============ Fallback Narrations for Actions ============
+
+    _getFallbackInvestigationNarration(protagonist, location, context) {
+        const timeDesc = {
+            morning: 'in the morning light',
+            afternoon: 'in the afternoon sun',
+            evening: 'in the fading evening light',
+            night: 'under the moonlight'
+        };
+
+        const desc = timeDesc[context.timeOfDay] || '';
+        return `${protagonist.name} carefully examines ${location} ${desc}, looking for anything of interest. The details of the surroundings reveal themselves slowly, each corner holding potential secrets. Nothing escapes their careful scrutiny.`;
+    }
+
+    _getFallbackSearchNarration(protagonist, location, context) {
+        return `${protagonist.name} methodically searches ${location}, checking every nook and corner. Their hands move with practiced care, lifting, probing, and examining. The search is thorough and deliberate.`;
+    }
+
+    _getFallbackRestNarration(protagonist, location, context) {
+        return `${protagonist.name} finds a quiet spot in ${location} to rest. As they settle down, the tension of the journey begins to ease. A moment of peace washes over them, restoring body and spirit.`;
+    }
+
+    _getFallbackTradeNarration(protagonist, location, context) {
+        return `${protagonist.name} approaches a merchant in ${location}. The exchange of goods and coin follows the familiar rhythm of commerce. Business is conducted with efficiency and mutual respect.`;
+    }
+
+    _getFallbackTravelNarration(protagonist, destination, context) {
+        return `${protagonist.name} sets out on the road toward ${destination}. The journey passes through familiar countryside, each step bringing them closer to their goal. Time and distance fall away beneath determined feet.`;
+    }
+
     // ============ Public API ============
     
     /**

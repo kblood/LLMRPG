@@ -293,6 +293,35 @@ body {
   font-family: var(--font-mono);
 }
 
+.player-gold {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
+  border-left: 3px solid #ffd700;
+  padding-left: 0.75rem;
+}
+
+.gold-icon {
+  font-size: 1.2rem;
+}
+
+.gold-amount {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #ffd700;
+  font-family: var(--font-mono);
+}
+
+.gold-label {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .player-resources {
   display: flex;
   flex-direction: column;
@@ -562,6 +591,34 @@ body {
   font-style: normal;
 }
 
+/* Transition Narration - Special styling for scene transitions */
+.gm-narration.transition-narration {
+  background: linear-gradient(135deg, rgba(78, 204, 163, 0.15), rgba(52, 152, 219, 0.15));
+  border: 2px solid rgba(78, 204, 163, 0.5);
+  box-shadow: 0 0 25px rgba(78, 204, 163, 0.3);
+  animation: transitionPulse 0.8s ease-in-out;
+}
+
+.gm-narration.transition-narration::before {
+  content: "⏱️ Time passes...";
+  color: #4ecca3;
+}
+
+@keyframes transitionPulse {
+  0% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Dialogue History */
 
 .dialogue-history {
@@ -632,6 +689,35 @@ body {
   color: var(--text-muted);
   margin-top: 0.5rem;
   font-family: var(--font-mono);
+}
+
+/* Transition Message - Appears in dialogue history */
+.message-transition {
+  align-self: center;
+  max-width: 90%;
+  background: linear-gradient(135deg, rgba(78, 204, 163, 0.1), rgba(52, 152, 219, 0.1));
+  border: 1px solid rgba(78, 204, 163, 0.4);
+  border-left: 4px solid #4ecca3;
+  font-style: italic;
+}
+
+.message-transition .message-speaker {
+  color: #4ecca3;
+  text-align: center;
+}
+
+.message-transition .message-text {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* System Message - For quests and events */
+.message-system {
+  align-self: center;
+  max-width: 90%;
+  background: linear-gradient(135deg, rgba(155, 89, 182, 0.1), rgba(155, 89, 182, 0.05));
+  border: 1px solid rgba(155, 89, 182, 0.4);
+  border-left: 4px solid var(--quest-color);
 }
 
 /* Quest Notification */

@@ -1,5 +1,6 @@
 import { GameSession } from '../../src/game/GameSession.js';
 import { GameMaster } from '../../src/systems/GameMaster.js';
+import { ActionSystem } from '../../src/systems/actions/ActionSystem.js';
 import { OllamaService } from '../../src/services/OllamaService.js';
 import { EventBus } from '../../src/services/EventBus.js';
 import { Character } from '../../src/entities/Character.js';
@@ -21,6 +22,7 @@ export class GameBackend {
   constructor() {
     this.session = null;
     this.gameMaster = null;
+    this.actionSystem = null;
     this.ollama = null;
     this.eventBus = null;
     this.npcs = null;
@@ -35,9 +37,11 @@ export class GameBackend {
     this.autonomousConfig = {
       maxTurnsPerConversation: 10,
       pauseBetweenTurns: 2000, // 2 seconds
-      pauseBetweenConversations: 3000 // 3 seconds
+      pauseBetweenConversations: 3000, // 3 seconds
+      pauseBetweenActions: 2000 // 2 seconds between actions
     };
     this.pastConversations = [];
+    this.lastConversationData = null; // Track last conversation for transitions
 
     // Replay system
     this.replayLogger = null;
@@ -85,7 +89,7 @@ export class GameBackend {
         charisma: 13
       });
 
-      const playerInventory = new Inventory(20, 100);
+      const playerInventory = new Inventory({ maxSlots: 20, maxWeight: 100, gold: 75 }); // Start with 75 gold
       const playerEquipment = new Equipment();
       const playerAbilities = new AbilityManager();
 
@@ -116,6 +120,9 @@ export class GameBackend {
 
       // Initialize Game Master
       this.gameMaster = new GameMaster(this.ollama, this.eventBus);
+
+      // Initialize Action System
+      this.actionSystem = new ActionSystem(this.gameMaster, this.session);
 
       // Initialize Replay Logger
       this.replayLogger = new ReplayLogger(this.session.seed);
@@ -377,6 +384,8 @@ export class GameBackend {
     }
 
     const stats = this.player.stats;
+    const gold = this.player.getGold();
+
     if (!stats) {
       return {
         name: this.player.name,
@@ -388,7 +397,8 @@ export class GameBackend {
         currentMagic: 100,
         maxMagic: 100,
         currentXP: 0,
-        xpToNextLevel: 100
+        xpToNextLevel: 100,
+        gold: gold
       };
     }
 
@@ -403,6 +413,7 @@ export class GameBackend {
       maxMagic: stats.maxMagic,
       currentXP: stats.currentXP,
       xpToNextLevel: stats.xpToNextLevel,
+      gold: gold,
       attributes: {
         strength: stats.strength,
         dexterity: stats.dexterity,
@@ -519,52 +530,111 @@ export class GameBackend {
   }
 
   /**
-   * Main autonomous game loop
+   * Main autonomous game loop with action system
    */
   async _runAutonomousLoop() {
     while (this.autonomousMode) {
       try {
         // Advance time (traveling/thinking between actions)
-        const timeUpdate = this.session.tick(5 + Math.floor(Math.random() * 10)); // 5-15 minutes
+        const timeDelta = 5 + Math.floor(Math.random() * 10); // 5-15 minutes
+        const timeUpdate = this.session.tick(timeDelta);
         this._sendToUI('game:time-update', timeUpdate);
 
-        // Choose an NPC to talk to
+        // Get available NPCs
         const availableNPCs = Array.from(this.npcs.values()).filter(npc =>
           !this.pastConversations.includes(npc.id)
         );
 
-        if (availableNPCs.length === 0) {
-          console.log('[GameBackend] All NPCs have been talked to, resetting');
-          this.pastConversations = [];
-          continue;
-        }
+        // Protagonist decides what action to take
+        const action = await this.actionSystem.decideNextAction(
+          this.player,
+          Array.from(this.npcs.values()),
+          this.pastConversations
+        );
 
-        const chosenNPC = await this._protagonistChooseNPC(availableNPCs);
-        console.log(`[GameBackend] Protagonist chose to talk to ${chosenNPC.name}`);
+        console.log(`[GameBackend] Protagonist decided to: ${action.type} - ${action.reason}`);
 
-        // Notify UI
-        this._sendToUI('autonomous:action', {
-          type: 'npc_chosen',
-          npcId: chosenNPC.id,
-          npcName: chosenNPC.name
+        // Get active quest for context
+        const activeQuests = this.session.questManager ? this.session.questManager.getActiveQuests() : [];
+        const activeQuest = activeQuests.length > 0 ? activeQuests[0] : null;
+
+        // Notify UI of action decision
+        this._sendToUI('autonomous:action-decision', {
+          type: action.type,
+          reason: action.reason
         });
 
-        this.pastConversations.push(chosenNPC.id);
-
-        // Wait before starting conversation
-        await this._sleep(this.autonomousConfig.pauseBetweenConversations);
+        await this._sleep(this.autonomousConfig.pauseBetweenActions);
 
         if (!this.autonomousMode) break;
 
-        // Start conversation
-        await this._runAutonomousConversation(chosenNPC);
+        // Handle CONVERSATION action specially (existing conversation system)
+        if (action.type === 'conversation') {
+          if (availableNPCs.length === 0) {
+            console.log('[GameBackend] All NPCs have been talked to, resetting');
+            this.pastConversations = [];
+            continue;
+          }
 
-        // Advance time after conversation
-        const postConvoTime = this.session.tick(10 + Math.floor(Math.random() * 15)); // 10-25 minutes
-        this._sendToUI('game:time-update', postConvoTime);
+          const chosenNPC = availableNPCs[0]; // Choose first available
+          console.log(`[GameBackend] Protagonist chose to talk to ${chosenNPC.name}`);
 
-        // Wait between conversations
-        await this._sleep(this.autonomousConfig.pauseBetweenConversations);
+          // Notify UI
+          this._sendToUI('autonomous:action', {
+            type: 'npc_chosen',
+            npcId: chosenNPC.id,
+            npcName: chosenNPC.name
+          });
+
+          this.pastConversations.push(chosenNPC.id);
+
+          // Wait before starting conversation
+          await this._sleep(this.autonomousConfig.pauseBetweenConversations);
+
+          if (!this.autonomousMode) break;
+
+          // Start conversation
+          await this._runAutonomousConversation(chosenNPC);
+
+          // Advance time after conversation
+          const postConvoTimeDelta = 10 + Math.floor(Math.random() * 15);
+          const postConvoTime = this.session.tick(postConvoTimeDelta);
+          this._sendToUI('game:time-update', postConvoTime);
+        } else {
+          // Execute other actions through ActionSystem
+          const result = await this.actionSystem.executeAction(action, this.player, {
+            location: 'Millhaven',
+            activeQuest: activeQuest
+          });
+
+          console.log(`[GameBackend] Action executed: ${action.type}, success: ${result.success}`);
+
+          // Send action result to UI
+          this._sendToUI('autonomous:action-result', {
+            type: action.type,
+            result: result,
+            narration: result.narration
+          });
+
+          // Advance time based on action
+          if (result.timeAdvanced) {
+            const actionTime = this.session.tick(result.timeAdvanced);
+            this._sendToUI('game:time-update', actionTime);
+          }
+
+          // Log action to replay
+          if (this.replayLogger) {
+            this.replayLogger.logEvent(this.session.frame++, 'action_performed', {
+              actionType: action.type,
+              reason: action.reason,
+              timeAdvanced: result.timeAdvanced,
+              success: result.success
+            }, this.player.id);
+          }
+        }
+
+        // Wait between actions
+        await this._sleep(this.autonomousConfig.pauseBetweenActions);
 
       } catch (error) {
         console.error('[GameBackend] Autonomous loop error:', error);
@@ -752,6 +822,14 @@ export class GameBackend {
           }
         });
       }
+
+      // Store conversation data for next transition
+      this.lastConversationData = {
+        npcName: npc.name,
+        npcRole: npc.role,
+        topics: 'general discussion', // Could be extracted from conversation
+        endReason: 'naturally concluded'
+      };
 
       // Notify UI conversation ended
       this._sendToUI('autonomous:conversation-end', {

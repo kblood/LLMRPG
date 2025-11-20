@@ -64,6 +64,11 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('autonomous:main-quest');
   },
 
+  onTransition: (callback) => {
+    ipcRenderer.on('autonomous:transition', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:transition');
+  },
+
   onAutonomousAction: (callback) => {
     ipcRenderer.on('autonomous:action', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('autonomous:action');

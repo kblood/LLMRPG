@@ -365,6 +365,9 @@ class OllamaRPGApp {
     document.getElementById('player-name').textContent = stats.name || 'Kael';
     document.getElementById('player-level').textContent = `Lv ${stats.level || 1}`;
 
+    // Update Gold
+    document.getElementById('player-gold').textContent = stats.gold || 0;
+
     // Update HP
     const hpPercent = (stats.currentHP / stats.maxHP) * 100;
     document.getElementById('hp-text').textContent = `${stats.currentHP}/${stats.maxHP}`;
@@ -405,6 +408,12 @@ class OllamaRPGApp {
     this.gameAPI.onMainQuest((data) => {
       console.log('[App] Main quest received:', data.quest);
       this.showMainQuest(data.quest);
+    });
+
+    // Transition narration
+    this.gameAPI.onTransition((data) => {
+      console.log('[App] Transition received:', data);
+      this.showTransition(data);
     });
 
     // Action chosen
@@ -651,6 +660,32 @@ class OllamaRPGApp {
     this.updateQuestPanel(quest);
 
     this.setStatus(`Quest received: ${quest.title}`);
+  }
+
+  showTransition(transitionData) {
+    // Display transition in the GM narration area with special styling
+    const narrationEl = document.getElementById('gm-narration');
+    narrationEl.textContent = transitionData.text;
+    narrationEl.classList.add('transition-narration');
+
+    // Remove transition styling after reading
+    setTimeout(() => {
+      narrationEl.classList.remove('transition-narration');
+    }, 3000);
+
+    // Also add to dialogue history for reference
+    const history = document.getElementById('dialogue-history');
+    const transitionEl = document.createElement('div');
+    transitionEl.className = 'message message-transition';
+    transitionEl.innerHTML = `
+      <div class="message-speaker" style="color: #88ccff;">⏱️ Scene Transition</div>
+      <div class="message-text">${transitionData.text}</div>
+    `;
+
+    history.appendChild(transitionEl);
+    history.scrollTop = history.scrollHeight;
+
+    this.setStatus(`Transitioning from ${transitionData.from} to ${transitionData.to}...`);
   }
 
   updateQuestPanel(quest) {

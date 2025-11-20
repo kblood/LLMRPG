@@ -58,15 +58,62 @@ export class QuestManager {
     return { questCompleted: false, objectiveCompleted: completed };
   }
 
-  completeQuest(questId) {
+  completeQuest(questId, character = null) {
     const quest = this.getQuest(questId);
     if (!quest || !quest.isActive()) return false;
 
     quest.state = 'completed';
     quest.completedAt = Date.now();
-    
-    this.eventBus.emit('quest:completed', { quest });
-    return true;
+
+    // Give rewards to character if provided
+    const rewards = this.giveQuestRewards(quest, character);
+
+    this.eventBus.emit('quest:completed', { quest, rewards });
+    return { success: true, rewards };
+  }
+
+  /**
+   * Give quest rewards to a character
+   * @param {Quest} quest - The completed quest
+   * @param {Character} character - Character to give rewards to
+   * @returns {Object} Rewards given
+   */
+  giveQuestRewards(quest, character) {
+    if (!character || !quest.rewards) {
+      return { given: false };
+    }
+
+    const rewardsGiven = {};
+
+    // Give gold reward
+    if (quest.rewards.gold && quest.rewards.gold > 0) {
+      character.addGold(quest.rewards.gold);
+      rewardsGiven.gold = quest.rewards.gold;
+    }
+
+    // Give XP reward
+    if (quest.rewards.xp && quest.rewards.xp > 0 && character.stats) {
+      character.stats.gainXP(quest.rewards.xp);
+      rewardsGiven.xp = quest.rewards.xp;
+    }
+
+    // Give item rewards
+    if (quest.rewards.items && Array.isArray(quest.rewards.items)) {
+      rewardsGiven.items = [];
+      quest.rewards.items.forEach(item => {
+        if (character.inventory) {
+          const result = character.inventory.addItem(item.item, item.quantity || 1);
+          if (result.success) {
+            rewardsGiven.items.push({
+              name: item.item.name,
+              quantity: item.quantity || 1
+            });
+          }
+        }
+      });
+    }
+
+    return rewardsGiven;
   }
 
   failQuest(questId) {

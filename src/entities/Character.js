@@ -64,6 +64,45 @@ export class Character extends Entity {
   }
 
   /**
+   * Get character's gold amount
+   * @returns {number}
+   */
+  getGold() {
+    return this.inventory ? this.inventory.gold : 0;
+  }
+
+  /**
+   * Add gold to character
+   * @param {number} amount
+   */
+  addGold(amount) {
+    if (this.inventory) {
+      this.inventory.addGold(amount);
+    }
+  }
+
+  /**
+   * Remove gold from character
+   * @param {number} amount
+   * @returns {boolean} Success
+   */
+  removeGold(amount) {
+    if (this.inventory) {
+      return this.inventory.removeGold(amount);
+    }
+    return false;
+  }
+
+  /**
+   * Check if character has enough gold
+   * @param {number} amount
+   * @returns {boolean}
+   */
+  hasGold(amount) {
+    return this.getGold() >= amount;
+  }
+
+  /**
    * Get character context for LLM prompts
    * @returns {Object} Context object
    */
@@ -97,6 +136,11 @@ export class Character extends Entity {
     if (this.equipment) {
       const equipped = this.equipment.getAllEquipped();
       context.equipment = equipped.map(e => e.item.name);
+    }
+
+    // Add gold if available
+    if (this.inventory) {
+      context.gold = this.inventory.gold;
     }
 
     return context;
