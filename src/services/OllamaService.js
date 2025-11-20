@@ -15,7 +15,7 @@ export class OllamaService {
     this.baseUrl = config.baseUrl || 'http://localhost:11434';
     this.defaultModel = config.defaultModel || 'llama3.1:8b';
     this.defaultTemperature = config.defaultTemperature || 0.7;
-    this.timeout = config.timeout || 30000; // 30 seconds
+    this.timeout = config.timeout || 120000; // 120 seconds
     
     // Response cache for replay determinism
     this.responseCache = new Map();

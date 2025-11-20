@@ -32,7 +32,8 @@ export class DialogueContextBuilder {
         mood: npc.mood || 'neutral',
         currentConcern: npc.currentConcern || null,
         personality: this._summarizePersonality(npc.personality),
-        background: npc.backstory || npc.background || ''
+        background: npc.backstory || npc.background || '',
+        services: this._determineServices(npc.role)
       },
 
       // Player info
@@ -69,23 +70,46 @@ export class DialogueContextBuilder {
    * @private
    */
   _extractNPCKnowledge(npc) {
-    if (!npc.knowledge) {
-      return {
-        specialties: [],
-        rumors: [],
-        secrets: [],
-        hasKnowledge: false
-      };
+    const knowledge = {
+      specialties: [],
+      rumors: [],
+      secrets: [],
+      locations: [],
+      hasKnowledge: false
+    };
+
+    // Legacy knowledge system
+    if (npc.knowledge) {
+      knowledge.specialties = npc.knowledge.specialties || [];
+      knowledge.rumors = npc.knowledge.rumors || [];
+      knowledge.secrets = npc.knowledge.secrets || [];
     }
 
-    return {
-      specialties: npc.knowledge.specialties || [],
-      rumors: npc.knowledge.rumors || [],
-      secrets: npc.knowledge.secrets || [],
-      hasKnowledge: (npc.knowledge.specialties?.length > 0) ||
-                    (npc.knowledge.rumors?.length > 0) ||
-                    (npc.knowledge.secrets?.length > 0)
-    };
+    // Extract from memory system (where world knowledge is stored)
+    if (npc.memory) {
+      // Get location knowledge
+      const locationMemories = npc.memory.getMemoriesByType('knowledge')
+        .filter(m => m.category === 'location');
+      knowledge.locations = locationMemories.map(m => m.content).slice(0, 5); // Top 5
+
+      // Get rumors from memory
+      const rumorMemories = npc.memory.getMemoriesByType('rumor');
+      const memoryRumors = rumorMemories.map(m => m.content).slice(0, 3); // Top 3
+      knowledge.rumors = [...knowledge.rumors, ...memoryRumors];
+
+      // Get mystery knowledge
+      const mysteryMemories = npc.memory.getMemoriesByCategory('mystery');
+      if (mysteryMemories && mysteryMemories.length > 0) {
+        knowledge.secrets = [...knowledge.secrets, ...mysteryMemories.map(m => m.content).slice(0, 2)];
+      }
+    }
+
+    knowledge.hasKnowledge = (knowledge.specialties.length > 0) ||
+                              (knowledge.rumors.length > 0) ||
+                              (knowledge.secrets.length > 0) ||
+                              (knowledge.locations.length > 0);
+
+    return knowledge;
   }
 
   /**
@@ -240,6 +264,27 @@ export class DialogueContextBuilder {
   }
 
   /**
+   * Determine what services an NPC provides based on their role
+   * @private
+   */
+  _determineServices(role) {
+    const serviceMap = {
+      'Blacksmith': ['Weapon and armor repair', 'Custom weapon forging', 'Metal working'],
+      'Traveling Merchant': ['Rare goods trading', 'Item appraisal', 'Information brokering'],
+      'Tavern Keeper': ['Food and lodging', 'Local gossip', 'Job board access'],
+      'Guard': ['Town security', 'Protection services', 'Legal information'],
+      'Healer': ['Healing services', 'Potion crafting', 'Disease treatment'],
+      'Scholar': ['Research assistance', 'Book lending', 'Ancient lore'],
+      'Farmer': ['Food supplies', 'Local produce', 'Farm work opportunities'],
+      'Hunter': ['Hunting guides', 'Wildlife tracking', 'Leather goods'],
+      'Priest': ['Blessings', 'Religious guidance', 'Sanctuary'],
+      'Thief': ['Lockpicking', 'Underworld contacts', 'Stealth training']
+    };
+
+    return serviceMap[role] || ['General conversation', 'Local information'];
+  }
+
+  /**
    * Summarize personality for context
    * @private
    */
@@ -306,6 +351,11 @@ export class DialogueContextBuilder {
       parts.push(`\nBackground: ${context.npc.background}`);
     }
 
+    // Services offered
+    if (context.npc.services && context.npc.services.length > 0) {
+      parts.push(`\nServices you offer: ${context.npc.services.join(', ')}`);
+    }
+
     // Personality
     if (context.npc.personality.summary) {
       parts.push(`\nPersonality: ${context.npc.personality.summary}`);
@@ -332,6 +382,13 @@ export class DialogueContextBuilder {
 
       if (context.knowledge.specialties.length > 0) {
         parts.push(`You are knowledgeable about: ${context.knowledge.specialties.join(', ')}`);
+      }
+
+      if (context.knowledge.locations && context.knowledge.locations.length > 0) {
+        parts.push('\nLocations you know about:');
+        context.knowledge.locations.forEach((location, i) => {
+          parts.push(`${i + 1}. ${location}`);
+        });
       }
 
       if (context.knowledge.rumors.length > 0) {
@@ -404,13 +461,17 @@ export class DialogueContextBuilder {
 
     if (options.isGreeting) {
       parts.push(`Greet ${context.player.name} naturally. Reference your current concern if you have one.`);
+      parts.push('Occasionally mention interesting locations, rumors, or services you offer.');
       parts.push('Keep it brief (1-2 sentences) and in character.');
     } else if (options.playerSaid) {
       parts.push(`${context.player.name} says: "${options.playerSaid}"`);
       parts.push('\nRespond naturally as your character would. Stay in character.');
       parts.push('If they ask about something you know about, share your knowledge.');
+      parts.push('If they ask about locations/cities/dungeons, mention what you know from your knowledge.');
       parts.push('If they ask about rumors, share what you have heard.');
       parts.push('If they ask about quests, provide relevant information.');
+      parts.push('If they seem interested in trading or services, mention what you can offer.');
+      parts.push('Naturally weave in information about the world, other locations, and things happening around.');
       parts.push('Keep your response concise (1-3 sentences).');
     }
 

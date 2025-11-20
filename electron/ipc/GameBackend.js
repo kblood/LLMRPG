@@ -76,8 +76,7 @@ export class GameBackend {
       });
 
       // Create player character with RPG stats
-      const playerStats = new CharacterStats();
-      playerStats.setBaseStats({
+      const playerStats = new CharacterStats({
         strength: 12,
         dexterity: 10,
         constitution: 14,
@@ -106,9 +105,6 @@ export class GameBackend {
         equipment: playerEquipment,
         abilities: playerAbilities
       });
-
-      // Auto-assign starting abilities based on stats
-      playerAbilities.autoAssignAbilities(playerStats);
 
       // Create NPCs
       const npcsObject = createAllNPCs();
@@ -437,11 +433,63 @@ export class GameBackend {
     this.autonomousMode = true;
     this.window = window;
 
+    // Generate world locations
+    console.log('[GameBackend] Generating world locations...');
+    const world = await this.gameMaster.generateWorld(this.player);
+
+    // Store world in session for NPC access
+    this.session.world = world;
+
+    // Give NPCs knowledge of the world
+    this._giveNPCsWorldKnowledge(world);
+
+    // Send world to UI
+    this._sendToUI('autonomous:world-generated', {
+      world: world
+    });
+
+    // Generate opening narration
+    console.log('[GameBackend] Generating opening narration...');
+    const openingNarration = await this.gameMaster.generateOpeningNarration(
+      this.player,
+      world,
+      { timeOfDay: this.session.getTimeOfDay() }
+    );
+
+    // Send opening narration to UI
+    this._sendToUI('autonomous:opening-narration', {
+      narration: openingNarration
+    });
+
+    // Wait for narration to be read
+    await this._sleep(5000);
+
+    // Generate main quest
+    console.log('[GameBackend] Generating main quest...');
+    const mainQuest = await this.gameMaster.generateMainQuest(this.player, world);
+
+    if (mainQuest) {
+      // Add quest to session
+      const questId = this.session.questManager.createQuest(mainQuest);
+      mainQuest.id = questId;
+
+      // Send quest to UI
+      this._sendToUI('autonomous:main-quest', {
+        quest: mainQuest
+      });
+
+      console.log(`[GameBackend] Main quest created: ${mainQuest.title}`);
+    }
+
+    // Wait before starting conversations
+    await this._sleep(3000);
+
     // Log game start event
     if (this.replayLogger) {
       this.replayLogger.logEvent(this.session.frame, 'game_start', {
         mode: 'autonomous',
-        seed: this.session.seed
+        seed: this.session.seed,
+        mainQuest: mainQuest?.title
       }, 'system');
     }
 
@@ -476,6 +524,10 @@ export class GameBackend {
   async _runAutonomousLoop() {
     while (this.autonomousMode) {
       try {
+        // Advance time (traveling/thinking between actions)
+        const timeUpdate = this.session.tick(5 + Math.floor(Math.random() * 10)); // 5-15 minutes
+        this._sendToUI('game:time-update', timeUpdate);
+
         // Choose an NPC to talk to
         const availableNPCs = Array.from(this.npcs.values()).filter(npc =>
           !this.pastConversations.includes(npc.id)
@@ -506,6 +558,10 @@ export class GameBackend {
 
         // Start conversation
         await this._runAutonomousConversation(chosenNPC);
+
+        // Advance time after conversation
+        const postConvoTime = this.session.tick(10 + Math.floor(Math.random() * 15)); // 10-25 minutes
+        this._sendToUI('game:time-update', postConvoTime);
 
         // Wait between conversations
         await this._sleep(this.autonomousConfig.pauseBetweenConversations);
@@ -591,6 +647,9 @@ export class GameBackend {
         });
 
         await this._sleep(this.autonomousConfig.pauseBetweenTurns);
+
+        // Advance time slightly (conversation turn)
+        this.session.tick(1 + Math.floor(Math.random() * 2)); // 1-3 minutes per greeting
       }
 
       // Conversation loop
@@ -603,6 +662,9 @@ export class GameBackend {
           npc,
           conversation.history
         );
+
+        // Advance time (thinking and speaking)
+        this.session.tick(1 + Math.floor(Math.random() * 2)); // 1-3 minutes per turn
 
         // Check for exit intent
         const exitPhrases = ['goodbye', 'farewell', 'see you', 'be going', 'must go', 'should leave'];
@@ -725,22 +787,42 @@ export class GameBackend {
 
     const goals = protagonist.memory.getMemoriesByType('goal');
 
+    // Get active quests
+    const activeQuests = this.session.questManager ? this.session.questManager.getActiveQuests() : [];
+    const questContext = activeQuests.length > 0 ? `
+
+Your Active Quest:
+- "${activeQuests[0].title}": ${activeQuests[0].description}
+${activeQuests[0].objectives ? `Objectives: ${activeQuests[0].objectives.map(o => o.description).join(', ')}` : ''}
+
+You can ask NPCs about locations, rumors, or things related to your quest.` : '';
+
+    // Get world knowledge
+    const world = this.session.world;
+    const worldContext = world ? `
+
+Known Locations:
+Cities: ${world.cities?.map(c => c.name).join(', ') || 'none'}
+Dungeons: ${world.dungeons?.slice(0, 3).map(d => d.name).join(', ') || 'none'}
+
+You can ask about these places or mention them in conversation.` : '';
+
     const context = `You are ${protagonist.name}, ${protagonist.backstory}
 
 Your personality:
 ${protagonist.personality.toDetailedDescription()}
 
 Your current goals:
-${goals.map(g => `- ${g.content}`).join('\n') || '- Learn more about this person'}
+${goals.map(g => `- ${g.content}`).join('\n') || '- Learn more about this person'}${questContext}${worldContext}
 
-You are having a conversation with ${npc.name}, who is ${npc.occupation || 'a villager'}.
+You are having a conversation with ${npc.name}, who is ${npc.occupation || npc.role || 'a villager'}.
 ${npc.backstory ? `About them: ${npc.backstory}` : ''}
 
 Recent conversation:
 ${historyText || '(conversation just started)'}
 
 Based on your personality and goals, decide what to say next to ${npc.name}.
-${conversationHistory.length < 3 ? 'Keep it friendly and introduce yourself naturally.' : 'Continue the conversation meaningfully.'}
+${conversationHistory.length < 3 ? 'Keep it friendly and introduce yourself naturally. You can mention your quest or ask about locations.' : 'Continue the conversation meaningfully. Ask about locations, quests, or services they might offer.'}
 ${conversationHistory.length > 7 ? 'Consider wrapping up the conversation politely if appropriate.' : ''}
 
 Respond naturally in first person. Keep it concise (1-2 sentences).`;
@@ -783,6 +865,105 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
     if (this.window && !this.window.isDestroyed()) {
       this.window.webContents.send(event, data);
     }
+  }
+
+  /**
+   * Give NPCs knowledge of world locations
+   */
+  _giveNPCsWorldKnowledge(world) {
+    if (!world || !this.npcs) return;
+
+    console.log('[GameBackend] Adding world knowledge to NPC memories...');
+
+    // Add knowledge about cities
+    if (world.cities) {
+      world.cities.forEach(city => {
+        this.npcs.forEach(npc => {
+          npc.memory.addMemory({
+            type: 'knowledge',
+            category: 'location',
+            content: `${city.name} - ${city.description}`,
+            importance: city.name === 'Millhaven' ? 0.9 : 0.6,
+            location: city.name,
+            tags: ['city', city.atmosphere, city.population]
+          });
+        });
+      });
+    }
+
+    // Add knowledge about dungeons (rumors)
+    if (world.dungeons) {
+      world.dungeons.forEach(dungeon => {
+        // Not all NPCs know about all dungeons
+        // More dangerous dungeons are less well-known
+        const knowledgeChance = dungeon.danger_level === 'low' ? 0.8 :
+                                dungeon.danger_level === 'medium' ? 0.6 :
+                                dungeon.danger_level === 'high' ? 0.4 : 0.2;
+
+        this.npcs.forEach(npc => {
+          if (Math.random() < knowledgeChance) {
+            npc.memory.addMemory({
+              type: 'rumor',
+              category: 'location',
+              content: `I've heard of ${dungeon.name}, ${dungeon.description}`,
+              importance: 0.5,
+              location: dungeon.name,
+              tags: ['dungeon', dungeon.type, dungeon.danger_level]
+            });
+
+            // Add treasure rumor separately
+            if (dungeon.rumored_treasure && Math.random() < 0.5) {
+              npc.memory.addMemory({
+                type: 'rumor',
+                category: 'treasure',
+                content: `They say ${dungeon.name} contains ${dungeon.rumored_treasure}`,
+                importance: 0.4,
+                tags: ['treasure', 'rumor', dungeon.name]
+              });
+            }
+          }
+        });
+      });
+    }
+
+    // Add knowledge about landmarks
+    if (world.landmarks) {
+      world.landmarks.forEach(landmark => {
+        this.npcs.forEach(npc => {
+          if (Math.random() < 0.7) { // 70% know about landmarks
+            npc.memory.addMemory({
+              type: 'knowledge',
+              category: 'location',
+              content: `${landmark.name} - ${landmark.description}`,
+              importance: 0.5,
+              location: landmark.name,
+              tags: ['landmark', landmark.type]
+            });
+          }
+        });
+      });
+    }
+
+    // Add knowledge about special locations (mysteries)
+    if (world.special_locations) {
+      world.special_locations.forEach(location => {
+        // Special locations are less well-known
+        this.npcs.forEach(npc => {
+          if (Math.random() < 0.4) {
+            npc.memory.addMemory({
+              type: 'rumor',
+              category: 'mystery',
+              content: `${location.name} - ${location.mystery}`,
+              importance: 0.6,
+              location: location.name,
+              tags: ['mystery', location.type, 'special']
+            });
+          }
+        });
+      });
+    }
+
+    console.log('[GameBackend] World knowledge added to NPCs');
   }
 
   /**

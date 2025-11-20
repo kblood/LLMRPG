@@ -51,9 +51,16 @@ export class GameSession {
     this.currentLocation = null;
     this.frame = 0;
     this.startTime = Date.now();
-    this.gameTime = 0;
+    this.gameTime = 480; // Start at 8:00 AM
     this.paused = false;
     this.autoDetectQuests = options.autoDetectQuests !== false;
+
+    // Time & Environment
+    this.day = 1;
+    this.season = 'autumn';
+    this.year = 1247;
+    this.weather = 'clear';
+    this.lastWeatherChange = 0;
   }
 
   setupEventHandlers() {
@@ -290,10 +297,60 @@ export class GameSession {
     this.dialogueSystem.endConversation(conversationId);
   }
 
-  tick() {
+  tick(minutes = 1) {
     if (this.paused) return;
     this.frame++;
-    this.gameTime += 1;
+    this.gameTime += minutes;
+
+    // Check for day change
+    if (this.gameTime >= 1440) { // 24 hours
+      this.gameTime -= 1440;
+      this.day++;
+
+      // Season change (every 30 days)
+      if (this.day % 30 === 0) {
+        this._advanceSeason();
+      }
+    }
+
+    // Weather changes (every 2-6 hours)
+    if (this.gameTime - this.lastWeatherChange >= 120 + Math.random() * 240) {
+      this._updateWeather();
+      this.lastWeatherChange = this.gameTime;
+    }
+
+    return {
+      time: this.getGameTimeString(),
+      timeOfDay: this.getTimeOfDay(),
+      weather: this.weather,
+      season: this.season,
+      day: this.day,
+      year: this.year
+    };
+  }
+
+  _advanceSeason() {
+    const seasons = ['spring', 'summer', 'autumn', 'winter'];
+    const currentIndex = seasons.indexOf(this.season);
+    this.season = seasons[(currentIndex + 1) % 4];
+
+    if (this.season === 'spring') {
+      this.year++;
+    }
+  }
+
+  _updateWeather() {
+    const weatherOptions = {
+      spring: ['clear', 'rainy', 'cloudy', 'foggy'],
+      summer: ['clear', 'clear', 'hot', 'cloudy'],
+      autumn: ['clear', 'rainy', 'foggy', 'cloudy', 'windy'],
+      winter: ['snowy', 'clear', 'foggy', 'stormy']
+    };
+
+    const options = weatherOptions[this.season];
+    // Prefer not changing to same weather
+    const filtered = options.filter(w => w !== this.weather);
+    this.weather = filtered[Math.floor(Math.random() * filtered.length)] || options[0];
   }
 
   getGameTimeString() {
@@ -313,13 +370,17 @@ export class GameSession {
   getStats() {
     const dialogueStats = this.dialogueSystem.getStats();
     const questStats = this.questManager.getStats();
-    
+
     return {
       sessionId: this.sessionId,
       seed: this.seed,
       frame: this.frame,
       gameTime: this.getGameTimeString(),
       timeOfDay: this.getTimeOfDay(),
+      weather: this.weather,
+      season: this.season,
+      day: this.day,
+      year: this.year,
       characterCount: this.characters.size,
       npcCount: this.getNPCs().length,
       realTimePlayed: Math.floor((Date.now() - this.startTime) / 1000),

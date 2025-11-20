@@ -43,7 +43,27 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('game:narration');
   },
 
+  onTimeUpdate: (callback) => {
+    ipcRenderer.on('game:time-update', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('game:time-update');
+  },
+
   // Autonomous mode event listeners
+  onWorldGenerated: (callback) => {
+    ipcRenderer.on('autonomous:world-generated', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:world-generated');
+  },
+
+  onOpeningNarration: (callback) => {
+    ipcRenderer.on('autonomous:opening-narration', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:opening-narration');
+  },
+
+  onMainQuest: (callback) => {
+    ipcRenderer.on('autonomous:main-quest', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:main-quest');
+  },
+
   onAutonomousAction: (callback) => {
     ipcRenderer.on('autonomous:action', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('autonomous:action');

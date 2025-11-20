@@ -117,6 +117,11 @@ class OllamaRPGApp {
   }
 
   setupEventListeners() {
+    // Time updates
+    this.gameAPI.onTimeUpdate((data) => {
+      this.updateTimeDisplay(data);
+    });
+
     // Start Manual Mode button
     document.getElementById('start-manual-btn').addEventListener('click', () => {
       this.startManualMode();
@@ -384,6 +389,24 @@ class OllamaRPGApp {
   // ============ Autonomous Mode Methods ============
 
   setupAutonomousListeners() {
+    // World generated
+    this.gameAPI.onWorldGenerated((data) => {
+      console.log('[App] World generated:', data.world);
+      this.displayWorld(data.world);
+    });
+
+    // Opening narration
+    this.gameAPI.onOpeningNarration((data) => {
+      console.log('[App] Opening narration received');
+      this.showOpeningNarration(data.narration);
+    });
+
+    // Main quest
+    this.gameAPI.onMainQuest((data) => {
+      console.log('[App] Main quest received:', data.quest);
+      this.showMainQuest(data.quest);
+    });
+
     // Action chosen
     this.gameAPI.onAutonomousAction((data) => {
       console.log('[App] Autonomous action:', JSON.stringify(data));
@@ -508,6 +531,147 @@ class OllamaRPGApp {
     this.setStatus(`Watching conversation with ${conversationData.npc.name}`);
   }
 
+  displayWorld(world) {
+    // Store world data
+    this.world = world;
+
+    const worldLocations = document.getElementById('world-locations');
+    worldLocations.innerHTML = '';
+
+    // Add cities
+    if (world.cities && world.cities.length > 0) {
+      const citiesSection = document.createElement('div');
+      citiesSection.className = 'location-category';
+      citiesSection.innerHTML = '<h4 class="category-title">🏘️ Cities & Towns</h4>';
+
+      world.cities.forEach(city => {
+        const cityEl = document.createElement('div');
+        cityEl.className = 'location-item';
+        cityEl.innerHTML = `
+          <div class="location-name">${city.name}</div>
+          <div class="location-desc">${city.description}</div>
+        `;
+        citiesSection.appendChild(cityEl);
+      });
+
+      worldLocations.appendChild(citiesSection);
+    }
+
+    // Add dungeons
+    if (world.dungeons && world.dungeons.length > 0) {
+      const dungeonsSection = document.createElement('div');
+      dungeonsSection.className = 'location-category';
+      dungeonsSection.innerHTML = '<h4 class="category-title">⚔️ Dungeons</h4>';
+
+      world.dungeons.slice(0, 3).forEach(dungeon => {
+        const dungeonEl = document.createElement('div');
+        dungeonEl.className = 'location-item dungeon';
+        const dangerColor = dungeon.danger_level === 'low' ? '#90ee90' :
+                           dungeon.danger_level === 'medium' ? '#ffd700' :
+                           dungeon.danger_level === 'high' ? '#ff8c00' : '#ff4444';
+        dungeonEl.innerHTML = `
+          <div class="location-name">${dungeon.name}</div>
+          <div class="location-meta" style="color: ${dangerColor};">⚠️ ${dungeon.danger_level} danger</div>
+        `;
+        dungeonsSection.appendChild(dungeonEl);
+      });
+
+      worldLocations.appendChild(dungeonsSection);
+    }
+
+    // Add landmarks
+    if (world.landmarks && world.landmarks.length > 0) {
+      const landmarksSection = document.createElement('div');
+      landmarksSection.className = 'location-category';
+      landmarksSection.innerHTML = '<h4 class="category-title">🏔️ Landmarks</h4>';
+
+      world.landmarks.slice(0, 3).forEach(landmark => {
+        const landmarkEl = document.createElement('div');
+        landmarkEl.className = 'location-item';
+        landmarkEl.innerHTML = `
+          <div class="location-name">${landmark.name}</div>
+        `;
+        landmarksSection.appendChild(landmarkEl);
+      });
+
+      worldLocations.appendChild(landmarksSection);
+    }
+
+    console.log(`[App] World displayed in UI`);
+  }
+
+  showOpeningNarration(narration) {
+    // Hide welcome panel, show conversation panel
+    document.getElementById('welcome-panel').classList.add('hidden');
+    document.getElementById('conversation-panel').classList.remove('hidden');
+
+    // Hide controls during narration
+    document.getElementById('autonomous-conversation-controls').classList.add('hidden');
+    document.getElementById('manual-input-area').classList.add('hidden');
+
+    // Show narration in the GM narration area
+    const narrationEl = document.getElementById('gm-narration');
+    narrationEl.textContent = narration;
+    narrationEl.style.fontSize = '1.1em';
+    narrationEl.style.lineHeight = '1.8';
+    narrationEl.style.padding = '20px';
+
+    // Set NPC info to "The Chronicler"
+    document.getElementById('current-npc-name').textContent = 'The Chronicler';
+    document.getElementById('current-npc-role').textContent = 'Narrator';
+
+    // Clear dialogue history
+    document.getElementById('dialogue-history').innerHTML = '';
+
+    this.setStatus('The tale begins...');
+  }
+
+  showMainQuest(quest) {
+    // Store quest
+    this.mainQuest = quest;
+
+    // Add quest info to dialogue history
+    const history = document.getElementById('dialogue-history');
+
+    const questEl = document.createElement('div');
+    questEl.className = 'message message-system';
+    questEl.innerHTML = `
+      <div class="message-speaker" style="color: #ffd700;">⚔ Quest Received</div>
+      <div class="message-text">
+        <strong>${quest.title}</strong><br>
+        <em>${quest.description}</em><br><br>
+        ${quest.motivation ? `<em style="color: #88ccff;">"${quest.motivation}"</em>` : ''}
+      </div>
+    `;
+
+    history.appendChild(questEl);
+    history.scrollTop = history.scrollHeight;
+
+    // Update quest panel
+    this.updateQuestPanel(quest);
+
+    this.setStatus(`Quest received: ${quest.title}`);
+  }
+
+  updateQuestPanel(quest) {
+    const questList = document.getElementById('quest-list');
+    questList.innerHTML = '';
+
+    const questItem = document.createElement('div');
+    questItem.className = 'quest-item active';
+    questItem.innerHTML = `
+      <div class="quest-title">${quest.title}</div>
+      <div class="quest-objectives">
+        ${quest.stages && quest.stages[0] ?
+          quest.stages[0].objectives.map(obj =>
+            `<div class="objective">• ${obj}</div>`
+          ).join('') : ''}
+      </div>
+    `;
+
+    questList.appendChild(questItem);
+  }
+
   addMessageToHistory(messageData) {
     const history = document.getElementById('dialogue-history');
 
@@ -548,6 +712,15 @@ class OllamaRPGApp {
 
   setStatus(text) {
     document.getElementById('status-text').textContent = text;
+  }
+
+  updateTimeDisplay(timeData) {
+    // Update time
+    document.getElementById('game-time').textContent = timeData.time;
+
+    // Update time of day with capitalization
+    const timeOfDay = timeData.timeOfDay.charAt(0).toUpperCase() + timeData.timeOfDay.slice(1);
+    document.getElementById('time-of-day').textContent = `${timeOfDay} | ${timeData.weather} | ${timeData.season}, Year ${timeData.year}`;
   }
 
   // ============ Replay Methods ============

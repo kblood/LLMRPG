@@ -181,6 +181,235 @@ Provide a short, evocative description (2-3 sentences) that sets the atmosphere 
     }
 
     /**
+     * Generate opening narration for the game start
+     */
+    async generateOpeningNarration(player, world, options = {}) {
+        this.logger.info('Generating opening narration for game start');
+
+        const prompt = `You are ${this.personality.name}, the narrator of an epic RPG adventure.
+
+The story begins with ${player.name}, ${player.backstory}
+
+Setting:
+- The village of Millhaven, a quiet settlement nestled in rolling hills
+- Time: ${options.timeOfDay || 'late afternoon'}
+- Season: ${options.season || 'early autumn'}
+
+The protagonist's journey:
+${player.name} has traveled for days to reach this village, drawn by rumors and whispers. The roads have been long, and the weight of purpose grows heavier with each step.
+
+Personality hints: ${this._summarizePersonality(player.personality)}
+
+Generate an atmospheric opening narration (3-5 paragraphs) that:
+1. Describes ${player.name} approaching the village from a distance
+2. Hints at their inner motivations and what drives them forward
+3. Sets a mysterious and atmospheric tone
+4. Introduces Millhaven and its appearance
+5. Creates anticipation for what lies ahead
+6. Ends with ${player.name} entering the village proper
+
+Make it evocative, mysterious, and compelling. This is the beginning of an epic tale.
+
+Opening Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 500,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            this.logger.info('Generated opening narration');
+
+            // Store in narrative memory
+            this.narrativeMemory.push({
+                text: narration,
+                context: { type: 'opening', player: player.name },
+                timestamp: Date.now()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate opening narration:', error);
+            return this._getFallbackOpeningNarration(player);
+        }
+    }
+
+    /**
+     * Generate the world map with locations
+     */
+    async generateWorld(player, options = {}) {
+        this.logger.info('Generating world locations');
+
+        const prompt = `You are ${this.personality.name}, creating the world for this RPG adventure.
+
+Protagonist: ${player.name}, ${player.backstory}
+
+Starting location: Millhaven - a quiet village nestled in rolling hills
+
+Create a living, breathing world with:
+1. 3-4 additional cities/towns (each with distinct character and culture)
+2. 4-6 dungeons/ruins (varying difficulty and mystery)
+3. 3-4 natural landmarks (forests, mountains, lakes, etc.)
+4. 2-3 mysterious/special locations (temples, towers, crossroads, etc.)
+
+Each location should:
+- Have a unique name and atmosphere
+- Feel connected to the overall world
+- Provide opportunities for quests and exploration
+- Be suitable for different character interactions
+
+Format your response as JSON:
+{
+  "cities": [
+    {
+      "name": "City name",
+      "description": "2-3 sentence description",
+      "atmosphere": "bustling|quiet|mysterious|industrial|etc",
+      "population": "small|medium|large",
+      "notable": "What makes this place special",
+      "distance_from_millhaven": "close|moderate|far"
+    }
+  ],
+  "dungeons": [
+    {
+      "name": "Dungeon name",
+      "type": "ruins|cave|crypt|fortress|mine|etc",
+      "description": "2-3 sentence description",
+      "danger_level": "low|medium|high|deadly",
+      "rumored_treasure": "What might be found here",
+      "history": "Brief history or legend"
+    }
+  ],
+  "landmarks": [
+    {
+      "name": "Landmark name",
+      "type": "forest|mountain|lake|plains|etc",
+      "description": "2-3 sentence description",
+      "significance": "Why this place matters",
+      "dangers": "What threats exist here"
+    }
+  ],
+  "special_locations": [
+    {
+      "name": "Location name",
+      "type": "temple|tower|shrine|crossroads|etc",
+      "description": "2-3 sentence description",
+      "mystery": "What secrets or questions surround this place",
+      "access": "easy|moderate|difficult|restricted"
+    }
+  ]
+}`;
+
+        try {
+            const response = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 1200,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            // Parse JSON response
+            const world = this._parseWorldResponse(response);
+
+            if (world) {
+                this.logger.info(`Generated world with ${world.cities?.length || 0} cities, ${world.dungeons?.length || 0} dungeons`);
+
+                // Store in narrative context
+                this.narrativeContext.world = world;
+
+                return world;
+            } else {
+                return this._getFallbackWorld(player);
+            }
+        } catch (error) {
+            this.logger.error('Failed to generate world:', error);
+            return this._getFallbackWorld(player);
+        }
+    }
+
+    /**
+     * Generate a main quest for the player
+     */
+    async generateMainQuest(player, world, options = {}) {
+        this.logger.info('Generating main quest');
+
+        // Build location context from world
+        const locationContext = world ? `
+
+Available Locations in the World:
+Cities: ${world.cities?.map(c => c.name).join(', ') || 'none'}
+Dungeons: ${world.dungeons?.map(d => `${d.name} (${d.type})`).join(', ') || 'none'}
+Landmarks: ${world.landmarks?.map(l => `${l.name} (${l.type})`).join(', ') || 'none'}
+Special Locations: ${world.special_locations?.map(s => `${s.name} (${s.type})`).join(', ') || 'none'}
+
+You can reference these locations in the quest stages and objectives.
+` : '';
+
+        const prompt = `You are ${this.personality.name}, creating the main quest for this RPG adventure.
+
+Protagonist: ${player.name}, ${player.backstory}
+Personality: ${this._summarizePersonality(player.personality)}
+
+Setting: The village of Millhaven and surrounding lands${locationContext}
+
+Create a compelling main quest that:
+1. Feels personal and meaningful to ${player.name}
+2. Involves mystery, exploration, and social interaction
+3. Requires speaking with multiple NPCs to uncover the truth
+4. Hints at something ancient or forgotten
+5. Has multiple stages that will unfold naturally
+6. Introduces 2-3 key locations beyond the village
+
+Format your response as JSON:
+{
+  "title": "Quest title",
+  "description": "Full quest description that the player understands",
+  "motivation": "Why ${player.name} cares about this quest",
+  "stages": [
+    {
+      "id": "stage_1",
+      "title": "Stage title",
+      "description": "What must be done",
+      "objectives": ["objective 1", "objective 2"]
+    }
+  ],
+  "locations": [
+    {
+      "name": "Location name",
+      "description": "Brief description",
+      "type": "ruins|forest|cave|mountain|etc"
+    }
+  ],
+  "rewards": {
+    "experience": 1000,
+    "items": ["potential reward 1"],
+    "narrative": "Story impact of completing quest"
+  }
+}`;
+
+        try {
+            const response = await this.ollama.generate(prompt, {
+                temperature: 0.8,
+                maxTokens: 600,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            // Parse JSON response
+            const quest = this._parseQuestResponse(response);
+
+            if (quest) {
+                this.logger.info(`Generated main quest: ${quest.title}`);
+                return quest;
+            } else {
+                return this._getFallbackMainQuest(player);
+            }
+        } catch (error) {
+            this.logger.error('Failed to generate main quest:', error);
+            return this._getFallbackMainQuest(player);
+        }
+    }
+
+    /**
      * Generate narration for the start of a dialogue/conversation
      */
     async generateDialogueNarration(npc, player, context) {
@@ -460,7 +689,7 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
             if (jsonMatch) {
                 return JSON.parse(jsonMatch[0]);
             }
-            
+
             // Fallback: create simple event from text
             return {
                 type: 'narrative_event',
@@ -470,6 +699,54 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
             };
         } catch (error) {
             this.logger.error('Failed to parse event response:', error);
+            return null;
+        }
+    }
+
+    _parseQuestResponse(questData) {
+        try {
+            // Try to parse as JSON
+            const jsonMatch = questData.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const quest = JSON.parse(jsonMatch[0]);
+                quest.id = `quest_${Date.now()}`;
+                quest.status = 'active';
+                quest.createdAt = Date.now();
+                return quest;
+            }
+            return null;
+        } catch (error) {
+            this.logger.error('Failed to parse quest response:', error);
+            return null;
+        }
+    }
+
+    _parseWorldResponse(worldData) {
+        try {
+            // Try to parse as JSON
+            const jsonMatch = worldData.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+                const world = JSON.parse(jsonMatch[0]);
+
+                // Add Millhaven as the starting city if not included
+                if (!world.cities) world.cities = [];
+                const hasMillhaven = world.cities.some(c => c.name.toLowerCase().includes('millhaven'));
+                if (!hasMillhaven) {
+                    world.cities.unshift({
+                        name: "Millhaven",
+                        description: "A quiet village nestled in rolling hills, known for its peaceful atmosphere and tight-knit community.",
+                        atmosphere: "peaceful",
+                        population: "small",
+                        notable: "The starting point of your journey",
+                        distance_from_millhaven: "here"
+                    });
+                }
+
+                return world;
+            }
+            return null;
+        } catch (error) {
+            this.logger.error('Failed to parse world response:', error);
             return null;
         }
     }
@@ -543,6 +820,197 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
 
         const desc = timeOfDayDesc[context.timeOfDay] || '';
         return `${npc.name} looks up as you approach ${desc}. They seem ready to talk.`;
+    }
+
+    _getFallbackOpeningNarration(player) {
+        return `The road stretches behind ${player.name}, dust settling in the fading light of day. For weeks, whispers and rumors have drawn them forward—tales of something ancient stirring in the quiet village of Millhaven.
+
+As the settlement comes into view, nestled in rolling hills like a secret kept from the wider world, ${player.name} pauses. Smoke rises from chimneys, and the warm glow of lanterns begins to flicker to life. It looks peaceful, almost too peaceful, but beneath that tranquility, there's a tension in the air—a sense that this place holds more than it shows.
+
+${player.name} adjusts their pack and continues forward, each step carrying them deeper into whatever fate awaits. The village gates stand open, welcoming yet somehow watchful. This is where the journey truly begins.`;
+    }
+
+    _getFallbackWorld(player) {
+        return {
+            cities: [
+                {
+                    name: "Millhaven",
+                    description: "A quiet village nestled in rolling hills, known for its peaceful atmosphere and tight-knit community.",
+                    atmosphere: "peaceful",
+                    population: "small",
+                    notable: "The starting point of your journey",
+                    distance_from_millhaven: "here"
+                },
+                {
+                    name: "Riverside",
+                    description: "A bustling trading town along the Silver River. Merchants from all over come to sell their wares. The sound of haggling fills the air from dawn to dusk.",
+                    atmosphere: "bustling",
+                    population: "medium",
+                    notable: "Major trading hub with diverse goods and information",
+                    distance_from_millhaven: "moderate"
+                },
+                {
+                    name: "Ironhold",
+                    description: "A fortified mining city built into the mountainside. The constant clanging of hammers and smell of forge-fire define this industrial settlement.",
+                    atmosphere: "industrial",
+                    population: "large",
+                    notable: "Finest metalwork in the region, strong military presence",
+                    distance_from_millhaven: "far"
+                },
+                {
+                    name: "Moonvale",
+                    description: "A mysterious village shrouded in perpetual mist. Locals are secretive and wary of outsiders, speaking in hushed tones about ancient traditions.",
+                    atmosphere: "mysterious",
+                    population: "small",
+                    notable: "Strange rituals and deep connection to the old ways",
+                    distance_from_millhaven: "moderate"
+                }
+            ],
+            dungeons: [
+                {
+                    name: "The Sunken Crypts",
+                    type: "crypt",
+                    description: "Ancient burial chambers that collapsed into underground caverns centuries ago. Water drips through cracked ceilings, and strange echoes suggest something still dwells below.",
+                    danger_level: "medium",
+                    rumored_treasure: "Artifacts from the old kingdom, possibly cursed",
+                    history: "Built during the First Age to honor fallen heroes, now abandoned and feared"
+                },
+                {
+                    name: "Blackstone Mines",
+                    type: "mine",
+                    description: "Abandoned iron mines where workers reported hearing voices in the darkness. No one has returned from the deepest shafts in years.",
+                    danger_level: "high",
+                    rumored_treasure: "Rich veins of rare ore, possibly something more valuable",
+                    history: "Closed 20 years ago after mysterious disappearances"
+                },
+                {
+                    name: "The Shattered Tower",
+                    type: "ruins",
+                    description: "The remains of an ancient wizard's tower, broken in half by some cataclysmic force. Magical energy still crackles around the rubble.",
+                    danger_level: "deadly",
+                    rumored_treasure: "Powerful magical artifacts and forbidden knowledge",
+                    history: "Tower of the Archmage Valdris, destroyed in the Mage Wars"
+                },
+                {
+                    name: "Howling Caverns",
+                    type: "cave",
+                    description: "Natural cave system where the wind creates an eerie howling sound. Local hunters report seeing strange lights deep within.",
+                    danger_level: "low",
+                    rumored_treasure: "Crystal formations worth a fortune",
+                    history: "Used by bandits in the past, now home to unknown creatures"
+                },
+                {
+                    name: "Fort Greywatch",
+                    type: "fortress",
+                    description: "A ruined military fortress on the border. Once a mighty stronghold, now overrun by creatures and claimed by nature.",
+                    danger_level: "medium",
+                    rumored_treasure: "The fortress armory, if it can be found",
+                    history: "Fell during the Border Wars, garrison never heard from again"
+                }
+            ],
+            landmarks: [
+                {
+                    name: "The Thornwood",
+                    type: "forest",
+                    description: "A dense, dark forest where thorned vines grow thick and wild. Strange sounds echo through the trees at night, and travelers report feeling watched.",
+                    significance: "Ancient druidic site, natural barrier between kingdoms",
+                    dangers: "Wild beasts, poisonous plants, possible bandits"
+                },
+                {
+                    name: "Mount Sentinel",
+                    type: "mountain",
+                    description: "The tallest peak in the region, perpetually crowned with snow. From its summit, they say you can see for a hundred miles.",
+                    significance: "Sacred to mountain-dwelling tribes, site of ancient shrines",
+                    dangers: "Harsh weather, dangerous climbing, territorial creatures"
+                },
+                {
+                    name: "The Mirrorwater Lake",
+                    type: "lake",
+                    description: "A perfectly still lake that reflects the sky like polished glass. The water is unnaturally clear, and some say visions appear in its depths.",
+                    significance: "Source of local legends, possible magical properties",
+                    dangers: "Deep cold waters, strange phenomena reported"
+                },
+                {
+                    name: "The Grey Moors",
+                    type: "plains",
+                    description: "Vast moorlands shrouded in grey mist. Stone circles dot the landscape, remnants of a civilization lost to time.",
+                    significance: "Ancient battleground, burial site of old kings",
+                    dangers: "Easy to get lost, spirits said to wander at night"
+                }
+            ],
+            special_locations: [
+                {
+                    name: "The Crossroads Shrine",
+                    type: "shrine",
+                    description: "An ancient stone shrine at the meeting of four roads. Travelers leave offerings for safe passage, and the shrine never goes empty.",
+                    mystery: "Who maintains the shrine? Why do offerings disappear overnight?",
+                    access: "easy"
+                },
+                {
+                    name: "The Singing Stones",
+                    type: "monument",
+                    description: "A circle of standing stones that hum with a low frequency when the wind blows. The sound is said to drive men mad or grant visions, depending on who you ask.",
+                    mystery: "What force animates the stones? What do the tones mean?",
+                    access: "moderate"
+                },
+                {
+                    name: "The Veiled Temple",
+                    type: "temple",
+                    description: "A temple to forgotten gods, hidden in the Thornwood. Only those deemed worthy can find the path, or so the legends claim.",
+                    mystery: "What gods were worshipped here? Do they still answer prayers?",
+                    access: "difficult"
+                }
+            ]
+        };
+    }
+
+    _getFallbackMainQuest(player) {
+        return {
+            id: `quest_${Date.now()}`,
+            title: "Echoes of the Forgotten",
+            description: "Strange occurrences have plagued Millhaven in recent weeks. Dreams of ancient voices, missing memories, and whispers of something buried beneath the village. The locals are worried but tight-lipped. You must uncover the truth.",
+            motivation: `${player.name} has heard the rumors from afar and feels an inexplicable pull toward Millhaven, as if this mystery is somehow tied to their own purpose.`,
+            status: 'active',
+            stages: [
+                {
+                    id: "stage_1",
+                    title: "Speak with the Villagers",
+                    description: "Talk to the people of Millhaven to learn about the strange occurrences",
+                    objectives: [
+                        "Speak with at least 3 different villagers",
+                        "Learn about the dreams and missing memories",
+                        "Find someone who knows about the village's history"
+                    ]
+                },
+                {
+                    id: "stage_2",
+                    title: "Uncover the Past",
+                    description: "Investigate the history of Millhaven and what lies beneath",
+                    objectives: [
+                        "Find records or stories about the village's founding",
+                        "Locate the source of the disturbances"
+                    ]
+                }
+            ],
+            locations: [
+                {
+                    name: "The Old Temple Ruins",
+                    description: "Ancient ruins on the hillside above Millhaven, said to predate the village itself",
+                    type: "ruins"
+                },
+                {
+                    name: "The Whispering Woods",
+                    description: "A dark forest to the east where strange sounds have been heard at night",
+                    type: "forest"
+                }
+            ],
+            rewards: {
+                experience: 1000,
+                items: ["Ancient Medallion"],
+                narrative: "Uncovering the truth will reveal the ancient history of Millhaven and your connection to it"
+            },
+            createdAt: Date.now()
+        };
     }
     
     // ============ Public API ============
