@@ -472,8 +472,12 @@ class OllamaRPGApp {
       if (result.success) {
         this.autonomousMode = true;
 
+        // Show player panel
+        document.getElementById('player-panel').classList.remove('hidden');
+
         // Hide mode selector, show stop button
         document.querySelector('.mode-selector').classList.add('hidden');
+        document.querySelector('.utility-controls').classList.add('hidden');
         document.querySelector('.autonomous-controls').classList.remove('hidden');
         document.getElementById('stop-autonomous-btn').classList.remove('hidden');
 
@@ -501,8 +505,9 @@ class OllamaRPGApp {
       if (result.success) {
         this.autonomousMode = false;
 
-        // Show mode selector again
+        // Show mode selector and utility controls again
         document.querySelector('.mode-selector').classList.remove('hidden');
+        document.querySelector('.utility-controls').classList.remove('hidden');
         document.querySelector('.autonomous-controls').classList.add('hidden');
 
         document.getElementById('mode-status').textContent = 'Stopped';

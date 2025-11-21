@@ -912,6 +912,13 @@ body {
   margin: 2rem 0;
 }
 
+.utility-controls {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
 .btn-large {
   padding: 1rem 2rem;
   font-size: 1.1rem;
