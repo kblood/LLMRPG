@@ -567,8 +567,12 @@ export class GameBackend {
       }, 'system');
     }
 
-    // Start the autonomous loop
-    this._runAutonomousLoop();
+    // Start the autonomous loop (don't await - let it run in background)
+    // The user will manually call stopAutonomous to end it
+    this._runAutonomousLoop().catch(error => {
+      console.error('[GameBackend] Autonomous loop crashed:', error);
+      this.autonomousMode = false;
+    });
 
     return { started: true };
   }
@@ -596,6 +600,7 @@ export class GameBackend {
    * Main autonomous game loop with action system
    */
   async _runAutonomousLoop() {
+    console.log('[GameBackend] Starting autonomous loop...');
     while (this.autonomousMode) {
       try {
         // Advance time (traveling/thinking between actions)

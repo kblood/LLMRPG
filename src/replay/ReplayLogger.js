@@ -95,6 +95,7 @@ class ReplayLogger {
 
     this.events.push(event);
     this.currentFrame = Math.max(this.currentFrame, frame);
+    console.log(`[ReplayLogger] Event logged: ${type} (total events: ${this.events.length})`);
   }
 
   /**
