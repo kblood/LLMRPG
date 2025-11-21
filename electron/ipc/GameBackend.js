@@ -507,13 +507,6 @@ export class GameBackend {
     this.autonomousMode = true;
     this.window = window;
 
-    // Start the autonomous loop immediately (don't await - let it run in background)
-    // This ensures the loop starts logging events right away, even while setup is happening
-    this._runAutonomousLoop().catch(error => {
-      console.error('[GameBackend] Autonomous loop crashed:', error);
-      this.autonomousMode = false;
-    });
-
     // Log game start event
     if (this.replayLogger) {
       this.replayLogger.logEvent(this.session.frame, 'game_start', {
@@ -523,8 +516,94 @@ export class GameBackend {
       }, 'system');
     }
 
+    // Start the autonomous loop immediately (don't await - let it run in background)
+    // This ensures the loop starts logging events right away, even while setup is happening
+    this._runAutonomousLoop().catch(error => {
+      console.error('[GameBackend] Autonomous loop crashed:', error);
+      this.autonomousMode = false;
+    });
+
+    // Run setup in background without blocking the loop
+    this._setupAutonomousGameWorld().catch(error => {
+      console.error('[GameBackend] World setup error:', error);
+      // Don't stop autonomous mode if setup fails
+    });
+
     // Return immediately so loop can run - setup happens in background
     return { started: true };
+  }
+
+  /**
+   * Setup world and quests in background while autonomous loop runs
+   */
+  async _setupAutonomousGameWorld() {
+    try {
+      // Generate world locations
+      console.log('[GameBackend] Generating world locations...');
+      const world = await this.gameMaster.generateWorld(this.player);
+
+      if (!this.autonomousMode) return; // Check if mode was stopped
+
+      // Store world in session for NPC access
+      this.session.world = world;
+
+      // Give NPCs knowledge of the world
+      this._giveNPCsWorldKnowledge(world);
+
+      // Send world to UI
+      this._sendToUI('autonomous:world-generated', {
+        world: world
+      });
+
+      // Generate opening narration
+      console.log('[GameBackend] Generating opening narration...');
+      const openingNarration = await this.gameMaster.generateOpeningNarration(
+        this.player,
+        world,
+        { timeOfDay: this.session.getTimeOfDay() }
+      );
+
+      if (!this.autonomousMode) return;
+
+      // Send opening narration to UI
+      this._sendToUI('autonomous:opening-narration', {
+        narration: openingNarration
+      });
+
+      // Wait for narration to be read
+      await this._sleep(5000);
+
+      if (!this.autonomousMode) return;
+
+      // Generate main quest
+      console.log('[GameBackend] Generating main quest...');
+      const mainQuest = await this.gameMaster.generateMainQuest(this.player, world);
+
+      if (!this.autonomousMode) return;
+
+      if (mainQuest) {
+        // Add quest to session
+        const questId = this.session.questManager.createQuest(mainQuest);
+        mainQuest.id = questId;
+
+        // Send quest to UI
+        this._sendToUI('autonomous:main-quest', {
+          quest: mainQuest
+        });
+
+        console.log(`[GameBackend] Main quest created: ${mainQuest.title}`);
+
+        // Update replay with main quest info
+        if (this.replayLogger) {
+          this.replayLogger.logEvent(this.session.frame, 'main_quest_generated', {
+            questTitle: mainQuest.title,
+            questDescription: mainQuest.description
+          }, 'system');
+        }
+      }
+    } catch (error) {
+      console.error('[GameBackend] Error during world setup:', error);
+    }
   }
 
   /**
@@ -1419,12 +1498,13 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
         }
       }
 
-      // Get world locations
-      const world = this.world ? {
-        cities: this.world.cities || [],
-        dungeons: this.world.dungeons || [],
-        landmarks: this.world.landmarks || [],
-        specialLocations: this.world.specialLocations || []
+      // Get world locations (check both this.world and this.session.world)
+      const worldData = this.world || this.session.world;
+      const world = worldData ? {
+        cities: worldData.cities || [],
+        dungeons: worldData.dungeons || [],
+        landmarks: worldData.landmarks || [],
+        specialLocations: worldData.specialLocations || []
       } : null;
 
       // Get nearby NPCs
