@@ -1043,7 +1043,10 @@ class OllamaRPGApp {
 
     // Update game UI if this event has a game state snapshot
     if (event.gameState) {
+      console.log(`[Replay] Updating UI from event ${event.type} with gameState:`, event.gameState);
       this.updateGameUIFromState(event.gameState);
+    } else {
+      console.log(`[Replay] Event ${event.type} has no gameState`);
     }
   }
 

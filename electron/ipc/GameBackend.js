@@ -790,14 +790,15 @@ export class GameBackend {
               this._sendToUI('game:time-update', actionTime);
             }
 
-            // Log action to replay
+            // Log action to replay with game state
             if (this.replayLogger) {
+              const gameState = this._captureGameState();
               this.replayLogger.logEvent(this.session.frame++, 'action_performed', {
                 actionType: action.type,
                 reason: action.reason,
                 timeAdvanced: result.timeAdvanced,
                 success: result.success
-              }, this.player.id);
+              }, this.player.id, gameState);
             }
           }
         } else {
@@ -822,14 +823,15 @@ export class GameBackend {
             this._sendToUI('game:time-update', actionTime);
           }
 
-          // Log action to replay
+          // Log action to replay with game state
           if (this.replayLogger) {
+            const gameState = this._captureGameState();
             this.replayLogger.logEvent(this.session.frame++, 'action_performed', {
               actionType: action.type,
               reason: action.reason,
               timeAdvanced: result.timeAdvanced,
               success: result.success
-            }, this.player.id);
+            }, this.player.id, gameState);
           }
         }
 
@@ -876,13 +878,14 @@ export class GameBackend {
 
       this.conversationHistory = [];
 
-      // Log conversation start event
+      // Log conversation start event with game state
       if (this.replayLogger) {
+        const gameState = this._captureGameState();
         this.replayLogger.logEvent(this.session.frame++, 'conversation_started', {
           protagonistId: this.player.id,
           npcId: npc.id,
           location: 'Village'
-        }, this.player.id);
+        }, this.player.id, gameState);
       }
 
       // Notify UI conversation started
@@ -1005,13 +1008,14 @@ export class GameBackend {
       // End conversation
       const summary = await this.endConversation(conversationId);
 
-      // Log conversation end
+      // Log conversation end with game state
       if (this.replayLogger) {
+        const gameState = this._captureGameState();
         this.replayLogger.logEvent(this.session.frame++, 'conversation_ended', {
           protagonistId: this.player.id,
           npcId: npc.id,
           turns: summary.turns
-        }, 'system');
+        }, 'system', gameState);
 
         // Create checkpoint
         this.replayLogger.logCheckpoint(this.session.frame, {
