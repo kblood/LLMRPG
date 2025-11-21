@@ -91,11 +91,13 @@ class ReplayLogger {
     // Add game state snapshot if provided
     if (gameState) {
       event.gameState = JSON.parse(JSON.stringify(gameState));
+      console.log(`[ReplayLogger] Event logged: ${type} (total events: ${this.events.length}) WITH gameState`);
+    } else {
+      console.log(`[ReplayLogger] Event logged: ${type} (total events: ${this.events.length}) - NO gameState`);
     }
 
     this.events.push(event);
     this.currentFrame = Math.max(this.currentFrame, frame);
-    console.log(`[ReplayLogger] Event logged: ${type} (total events: ${this.events.length})`);
   }
 
   /**

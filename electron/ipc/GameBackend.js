@@ -640,6 +640,9 @@ export class GameBackend {
         // Log time changes to replay with game state
         if (this.replayLogger) {
           const gameState = this._captureGameState();
+          if (!gameState) {
+            console.warn('[GameBackend] _captureGameState() returned null for time_changed event');
+          }
           this.replayLogger.logEvent(this.session.frame, 'time_changed', {
             time: timeUpdate.time,
             timeOfDay: timeUpdate.timeOfDay,
