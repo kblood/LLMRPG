@@ -852,7 +852,7 @@ class OllamaRPGApp {
     // Show game UI panels for replay (player, quests, world, time)
     document.getElementById('player-panel').classList.remove('hidden');
     document.querySelector('.world-panel').classList.remove('hidden');
-    document.querySelector('.quest-panel').classList.remove('hidden');
+    document.querySelector('.quests-panel').classList.remove('hidden');
 
     // Set replay info
     document.getElementById('replay-filename').textContent = filename;
@@ -1203,7 +1203,7 @@ class OllamaRPGApp {
     // Hide game UI panels
     document.getElementById('player-panel').classList.add('hidden');
     document.querySelector('.world-panel').classList.add('hidden');
-    document.querySelector('.quest-panel').classList.add('hidden');
+    document.querySelector('.quests-panel').classList.add('hidden');
 
     // Hide replay panel, show welcome
     document.getElementById('replay-panel').classList.add('hidden');
