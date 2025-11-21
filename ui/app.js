@@ -1072,7 +1072,7 @@ class OllamaRPGApp {
       console.log(`[Replay] Updating UI from event ${event.type} with gameState:`, event.gameState);
       this.updateGameUIFromState(event.gameState);
     } else {
-      console.log(`[Replay] Event ${event.type} has no gameState`);
+      console.log(`[Replay] Event ${event.type} (frame ${event.frame}) has no gameState`);
     }
   }
 
