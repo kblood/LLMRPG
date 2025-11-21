@@ -768,7 +768,8 @@ class OllamaRPGApp {
   async showReplayViewer() {
     console.log('[App] Opening replay viewer');
 
-    // Hide other panels
+    // Show game screen and hide other panels
+    this.showGameScreen();
     document.getElementById('welcome-panel').classList.add('hidden');
     document.getElementById('conversation-panel').classList.add('hidden');
     document.getElementById('replay-panel').classList.remove('hidden');
@@ -1087,7 +1088,10 @@ class OllamaRPGApp {
 
     // Update time display
     if (state.time) {
+      console.log('[App] Updating time display with:', state.time);
       this.updateTimeDisplay(state.time);
+    } else {
+      console.log('[App] No time data in state snapshot');
     }
 
     // Update quest panel
