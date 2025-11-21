@@ -1,0 +1,162 @@
+{
+  "quest_types": [
+    {
+      "id": "main_quest",
+      "category": "main",
+      "templates": [
+        {
+          "id": "ancient_artifact",
+          "title_template": "The {artifact_name}",
+          "description_template": "Seek the legendary {artifact_name}, said to possess {power_description}. It was last seen in {location}.",
+          "stages": [
+            {
+              "id": "gather_information",
+              "title": "Gather Information",
+              "objectives": [
+                "Speak with local scholars",
+                "Investigate ancient texts",
+                "Find clues about the artifact's location"
+              ]
+            },
+            {
+              "id": "locate_artifact",
+              "title": "Locate the Artifact",
+              "objectives": [
+                "Travel to {location}",
+                "Navigate the dangers within",
+                "Find the artifact chamber"
+              ]
+            },
+            {
+              "id": "retrieve_artifact",
+              "title": "Retrieve the Artifact",
+              "objectives": [
+                "Overcome the guardian",
+                "Claim the {artifact_name}",
+                "Return safely"
+              ]
+            }
+          ],
+          "rewards": {
+            "gold": 500,
+            "xp": 1000,
+            "reputation": 50
+          }
+        },
+        {
+          "id": "dark_prophecy",
+          "title_template": "The Dark Prophecy",
+          "description_template": "A dire prophecy speaks of {threat} rising in {location}. You must stop it before it's too late.",
+          "stages": [
+            {
+              "id": "investigate_prophecy",
+              "title": "Investigate the Prophecy",
+              "objectives": [
+                "Consult with the oracle",
+                "Decipher ancient warnings",
+                "Identify the threat"
+              ]
+            },
+            {
+              "id": "gather_allies",
+              "title": "Gather Allies",
+              "objectives": [
+                "Recruit brave warriors",
+                "Convince the council",
+                "Prepare for battle"
+              ]
+            },
+            {
+              "id": "confront_threat",
+              "title": "Confront the Threat",
+              "objectives": [
+                "Journey to {location}",
+                "Battle through enemy forces",
+                "Prevent the prophecy"
+              ]
+            }
+          ],
+          "rewards": {
+            "gold": 750,
+            "xp": 1500,
+            "reputation": 75
+          }
+        }
+      ]
+    },
+    {
+      "id": "side_quest",
+      "category": "side",
+      "templates": [
+        {
+          "id": "rescue_mission",
+          "title_template": "Rescue {npc_name}",
+          "description_template": "{npc_name} has been captured by {enemy_type} and taken to {location}. Bring them home safely.",
+          "objectives": [
+            "Find {location}",
+            "Defeat the captors",
+            "Escort {npc_name} to safety"
+          ],
+          "rewards": {
+            "gold": 150,
+            "xp": 300,
+            "reputation": 20
+          }
+        },
+        {
+          "id": "merchant_caravan",
+          "title_template": "Protect the Caravan",
+          "description_template": "A merchant caravan traveling to {destination} needs protection from bandits and beasts.",
+          "objectives": [
+            "Meet the merchant at {start_location}",
+            "Defend against ambushes",
+            "Arrive safely at {destination}"
+          ],
+          "rewards": {
+            "gold": 100,
+            "xp": 200,
+            "reputation": 15
+          }
+        },
+        {
+          "id": "bounty_hunt",
+          "title_template": "Bounty: {target_name}",
+          "description_template": "{target_name}, a notorious {enemy_type}, has a bounty on their head. Last seen near {location}.",
+          "objectives": [
+            "Track {target_name}",
+            "Confront and defeat them",
+            "Collect the bounty"
+          ],
+          "rewards": {
+            "gold": 200,
+            "xp": 350,
+            "reputation": 25
+          }
+        }
+      ]
+    }
+  ],
+  "variables": {
+    "artifact_names": [
+      "Crown of Eternity",
+      "Staff of the Ancients",
+      "Sword of Dawn",
+      "Amulet of Shadows",
+      "Crystal of Truth"
+    ],
+    "power_descriptions": [
+      "the power to control time itself",
+      "unlimited arcane knowledge",
+      "the ability to vanquish darkness",
+      "mastery over the elements",
+      "the wisdom of the ages"
+    ],
+    "threats": [
+      "an ancient evil",
+      "a demon lord",
+      "a dragon cult",
+      "undead hordes",
+      "a dark sorcerer"
+    ]
+  }
+}

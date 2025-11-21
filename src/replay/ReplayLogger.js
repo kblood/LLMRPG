@@ -71,9 +71,10 @@ class ReplayLogger {
    * @param {string} type - Type of event
    * @param {*} data - Event data
    * @param {string} characterId - ID of character involved
+   * @param {Object} gameState - Optional full game state snapshot for this event
    * @returns {void}
    */
-  logEvent(frame, type, data, characterId) {
+  logEvent(frame, type, data, characterId, gameState = null) {
     if (!this.isInitialized) {
       console.warn('ReplayLogger not initialized, skipping event log');
       return;
@@ -86,6 +87,11 @@ class ReplayLogger {
       characterId,
       timestamp: Date.now()
     };
+
+    // Add game state snapshot if provided
+    if (gameState) {
+      event.gameState = JSON.parse(JSON.stringify(gameState));
+    }
 
     this.events.push(event);
     this.currentFrame = Math.max(this.currentFrame, frame);

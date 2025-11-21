@@ -1,0 +1,173 @@
+{
+  "location_templates": {
+    "cities": [
+      {
+        "name_template": "{prefix} {suffix}",
+        "prefixes": ["Iron", "Silver", "Crystal", "Storm", "Shadow", "Golden", "Azure", "Crimson"],
+        "suffixes": ["Haven", "Gate", "Ridge", "Port", "Crossing", "Watch", "Falls", "Peak"],
+        "size_categories": {
+          "large": {
+            "population_range": [5000, 15000],
+            "districts": ["market", "noble", "craftsmen", "docks", "temple"],
+            "services": ["inn", "blacksmith", "general_store", "temple", "guild_hall"]
+          },
+          "medium": {
+            "population_range": [1000, 5000],
+            "districts": ["market", "residential"],
+            "services": ["inn", "blacksmith", "general_store"]
+          },
+          "small": {
+            "population_range": [100, 1000],
+            "districts": ["village_square"],
+            "services": ["inn", "general_store"]
+          }
+        },
+        "characteristics": [
+          "trading hub",
+          "military fortress",
+          "magical academy",
+          "mining town",
+          "port city",
+          "religious center"
+        ]
+      }
+    ],
+    "dungeons": [
+      {
+        "name_template": "The {adjective} {type}",
+        "adjectives": ["Forgotten", "Ancient", "Cursed", "Lost", "Hidden", "Sunken", "Frozen", "Burning"],
+        "types": ["Catacombs", "Temple", "Ruins", "Caverns", "Tomb", "Fortress", "Sanctum", "Depths"],
+        "difficulty_levels": {
+          "easy": {
+            "level_range": [1, 3],
+            "danger": "low",
+            "enemy_count": [3, 6]
+          },
+          "medium": {
+            "level_range": [4, 6],
+            "danger": "medium",
+            "enemy_count": [5, 10]
+          },
+          "hard": {
+            "level_range": [7, 9],
+            "danger": "high",
+            "enemy_count": [8, 15]
+          },
+          "deadly": {
+            "level_range": [10, 15],
+            "danger": "deadly",
+            "enemy_count": [10, 20]
+          }
+        },
+        "features": [
+          "trap-filled corridors",
+          "magical barriers",
+          "underground lake",
+          "ancient library",
+          "treasure vault",
+          "boss chamber"
+        ]
+      }
+    ],
+    "landmarks": [
+      {
+        "name_template": "{descriptor} {feature}",
+        "descriptors": ["Whispering", "Twisted", "Sacred", "Desolate", "Enchanted", "Shattered"],
+        "features": ["Woods", "Mountains", "Plains", "Lake", "Valley", "Cliffs", "Marshlands"],
+        "special_properties": [
+          "magical phenomenon",
+          "ancient battlefield",
+          "dragon nesting grounds",
+          "fairy circle",
+          "meteorite crater",
+          "elemental nexus"
+        ]
+      }
+    ],
+    "special_locations": [
+      {
+        "id": "wizard_tower",
+        "name_template": "{wizard_name}'s Tower",
+        "wizard_names": ["Aldric", "Morvanna", "Theron", "Elara", "Zephyr"],
+        "description": "A mysterious tower where powerful magic is studied",
+        "danger": "medium",
+        "unique_npcs": ["the wizard", "apprentice", "magical construct"]
+      },
+      {
+        "id": "dragon_lair",
+        "name_template": "Lair of {dragon_name}",
+        "dragon_names": ["Flameheart", "Frostfang", "Stormwing", "Shadowscale", "Goldeye"],
+        "description": "The treacherous home of an ancient dragon",
+        "danger": "deadly",
+        "unique_npcs": ["the dragon", "dragon cultist", "treasure guardian"]
+      },
+      {
+        "id": "thieves_guild",
+        "name": "The Shadow Syndicate",
+        "description": "A hidden network of thieves and assassins",
+        "danger": "medium",
+        "unique_npcs": ["guildmaster", "fence", "assassin"]
+      }
+    ]
+  },
+  "regions": [
+    {
+      "name": "The Northern Realms",
+      "climate": "cold",
+      "terrain": "mountains",
+      "typical_enemies": ["frost_troll", "ice_wraith", "snow_wolf"],
+      "resources": ["iron", "silver", "furs"]
+    },
+    {
+      "name": "The Verdant Expanse",
+      "climate": "temperate",
+      "terrain": "forests",
+      "typical_enemies": ["forest_bandit", "dire_wolf", "treant"],
+      "resources": ["timber", "herbs", "game"]
+    },
+    {
+      "name": "The Sundered Wastes",
+      "climate": "arid",
+      "terrain": "desert",
+      "typical_enemies": ["sand_drake", "scorpion_swarm", "desert_nomad"],
+      "resources": ["gems", "ancient_artifacts", "spices"]
+    },
+    {
+      "name": "The Coastal Kingdoms",
+      "climate": "mild",
+      "terrain": "coastline",
+      "typical_enemies": ["sea_raider", "siren", "kraken_spawn"],
+      "resources": ["fish", "pearls", "trade_goods"]
+    }
+  ],
+  "world_events": [
+    {
+      "type": "festival",
+      "name_templates": [
+        "Harvest Festival",
+        "Midsummer Celebration",
+        "Winter Solstice",
+        "Hero's Day"
+      ],
+      "effects": {
+        "merchant_prices": 0.9,
+        "npc_friendliness": 1.2,
+        "quest_availability": 1.5
+      }
+    },
+    {
+      "type": "crisis",
+      "name_templates": [
+        "Plague Outbreak",
+        "Bandit Raids",
+        "Monster Surge",
+        "Political Unrest"
+      ],
+      "effects": {
+        "merchant_prices": 1.3,
+        "danger_level": 1.5,
+        "quest_rewards": 1.3
+      }
+    }
+  ]
+}

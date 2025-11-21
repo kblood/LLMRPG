@@ -184,23 +184,25 @@ export class GameBackend {
     this.eventBus.on('quest:created', ({ quest }) => {
       console.log('[GameBackend] Quest created:', quest.title);
       if (this.replayLogger) {
+        const gameState = this._captureGameState();
         this.replayLogger.logEvent(this.session.frame, 'quest_started', {
           questId: quest.id,
           title: quest.title,
           description: quest.description,
           objectives: quest.stages?.[0]?.objectives || []
-        }, 'system');
+        }, 'system', gameState);
       }
     });
 
     this.eventBus.on('quest:completed', ({ quest, rewards }) => {
       console.log('[GameBackend] Quest completed:', quest.title);
       if (this.replayLogger) {
+        const gameState = this._captureGameState();
         this.replayLogger.logEvent(this.session.frame, 'quest_completed', {
           questId: quest.id,
           title: quest.title,
           rewards: rewards || {}
-        }, this.player?.id || 'system');
+        }, this.player?.id || 'system', gameState);
       }
     });
 
@@ -599,8 +601,9 @@ export class GameBackend {
         const timeUpdate = this.session.tick(timeDelta);
         this._sendToUI('game:time-update', timeUpdate);
 
-        // Log time changes to replay
+        // Log time changes to replay with game state
         if (this.replayLogger) {
+          const gameState = this._captureGameState();
           this.replayLogger.logEvent(this.session.frame, 'time_changed', {
             time: timeUpdate.time,
             timeOfDay: timeUpdate.timeOfDay,
@@ -609,7 +612,7 @@ export class GameBackend {
             day: timeUpdate.day,
             year: timeUpdate.year,
             minutesAdvanced: timeDelta
-          }, 'system');
+          }, 'system', gameState);
         }
 
         // Get available NPCs
@@ -722,15 +725,16 @@ export class GameBackend {
               rewards: combatResult.rewards
             });
 
-            // Log combat to replay
+            // Log combat to replay with game state
             if (this.replayLogger) {
+              const gameState = this._captureGameState();
               this.replayLogger.logEvent(this.session.frame++, 'combat_encounter', {
                 location: location.name,
                 enemies: encounter.enemies.map(e => ({ name: e.name, level: e.stats?.level || 1 })),
                 outcome: combatResult.outcome,
                 rounds: combatResult.rounds,
                 rewards: combatResult.rewards
-              }, this.player.id);
+              }, this.player.id, gameState);
 
               // Log rewards separately for easier replay analysis
               if (combatResult.outcome === 'victory' && combatResult.rewards) {
@@ -1395,6 +1399,92 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
     } catch (error) {
       console.error('[GameBackend] Failed to load replay:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Capture current game state for replay
+   * @returns {Object} Game state snapshot
+   */
+  _captureGameState() {
+    if (!this.player || !this.session) {
+      return null;
+    }
+
+    try {
+      // Get player stats
+      const playerStats = {
+        name: this.player.name,
+        level: this.player.stats?.level || 1,
+        currentHP: this.player.stats?.currentHP || 0,
+        maxHP: this.player.stats?.maxHP || 0,
+        currentMP: this.player.stats?.currentMP || 0,
+        maxMP: this.player.stats?.maxMP || 0,
+        currentXP: this.player.stats?.currentXP || 0,
+        xpToNextLevel: this.player.stats?.xpToNextLevel || 0,
+        gold: this.player.getGold?.() || 0,
+        statValues: {
+          str: this.player.stats?.getStatValue?.('str') || 10,
+          dex: this.player.stats?.getStatValue?.('dex') || 10,
+          con: this.player.stats?.getStatValue?.('con') || 10,
+          int: this.player.stats?.getStatValue?.('int') || 10,
+          wis: this.player.stats?.getStatValue?.('wis') || 10,
+          cha: this.player.stats?.getStatValue?.('cha') || 10
+        }
+      };
+
+      // Get time data
+      const timeData = {
+        time: this.session.getFormattedTime?.() || '00:00',
+        timeOfDay: this.session.getTimeOfDay?.() || 'evening',
+        weather: this.session.weather || 'clear',
+        season: this.session.season || 'autumn',
+        day: this.session.day || 1,
+        year: this.session.year || 1247
+      };
+
+      // Get active quests
+      const quests = [];
+      if (this.session.questLog && this.session.questLog.activeQuests) {
+        for (const quest of this.session.questLog.activeQuests.values()) {
+          quests.push({
+            id: quest.id,
+            title: quest.title,
+            description: quest.description,
+            status: quest.status,
+            currentStage: quest.currentStage,
+            stages: quest.stages
+          });
+        }
+      }
+
+      // Get world locations
+      const world = this.world ? {
+        cities: this.world.cities || [],
+        dungeons: this.world.dungeons || [],
+        landmarks: this.world.landmarks || [],
+        specialLocations: this.world.specialLocations || []
+      } : null;
+
+      // Get nearby NPCs
+      const npcs = this.npcs ? this.npcs.map(npc => ({
+        id: npc.id,
+        name: npc.name,
+        role: npc.role,
+        relationship: npc.relationships?.getRelationship?.(this.player.id) || 0
+      })) : [];
+
+      return {
+        player: playerStats,
+        time: timeData,
+        quests: quests,
+        world: world,
+        npcs: npcs,
+        frame: this.session.frame
+      };
+    } catch (error) {
+      console.error('[GameBackend] Error capturing game state:', error);
+      return null;
     }
   }
 

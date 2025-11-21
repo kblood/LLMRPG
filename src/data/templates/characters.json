@@ -1,0 +1,110 @@
+{
+  "protagonist_templates": [
+    {
+      "id": "warrior_hero",
+      "name": "Kael Stormborn",
+      "archetype": "warrior",
+      "backstory": "A legendary warrior seeking redemption for past failures",
+      "personality": {
+        "traits": ["brave", "honorable", "determined"],
+        "values": ["justice", "loyalty", "strength"]
+      },
+      "stats": {
+        "str": 16,
+        "dex": 12,
+        "con": 15,
+        "int": 10,
+        "wis": 11,
+        "cha": 13
+      }
+    },
+    {
+      "id": "mage_scholar",
+      "name": "Lyra Moonwhisper",
+      "archetype": "mage",
+      "backstory": "A brilliant scholar uncovering ancient secrets",
+      "personality": {
+        "traits": ["curious", "analytical", "cautious"],
+        "values": ["knowledge", "wisdom", "truth"]
+      },
+      "stats": {
+        "str": 8,
+        "dex": 10,
+        "con": 11,
+        "int": 17,
+        "wis": 15,
+        "cha": 12
+      }
+    },
+    {
+      "id": "rogue_wanderer",
+      "name": "Raven Shadowstep",
+      "archetype": "rogue",
+      "backstory": "A cunning thief with a mysterious past",
+      "personality": {
+        "traits": ["clever", "adaptable", "secretive"],
+        "values": ["freedom", "survival", "cunning"]
+      },
+      "stats": {
+        "str": 10,
+        "dex": 17,
+        "con": 12,
+        "int": 13,
+        "wis": 11,
+        "cha": 14
+      }
+    }
+  ],
+  "npc_archetypes": [
+    {
+      "id": "merchant",
+      "personality_ranges": {
+        "greed": [30, 70],
+        "honesty": [40, 80],
+        "friendliness": [50, 90]
+      },
+      "common_traits": ["practical", "shrewd", "talkative"],
+      "inventory_types": ["weapons", "armor", "potions", "supplies"]
+    },
+    {
+      "id": "guard",
+      "personality_ranges": {
+        "greed": [10, 40],
+        "honesty": [60, 95],
+        "friendliness": [30, 60]
+      },
+      "common_traits": ["dutiful", "vigilant", "stern"],
+      "inventory_types": ["weapons", "armor"]
+    },
+    {
+      "id": "innkeeper",
+      "personality_ranges": {
+        "greed": [20, 50],
+        "honesty": [50, 80],
+        "friendliness": [70, 95]
+      },
+      "common_traits": ["welcoming", "gossip", "helpful"],
+      "inventory_types": ["food", "drinks", "supplies"]
+    },
+    {
+      "id": "scholar",
+      "personality_ranges": {
+        "greed": [10, 30],
+        "honesty": [70, 95],
+        "friendliness": [40, 70]
+      },
+      "common_traits": ["knowledgeable", "distracted", "pedantic"],
+      "inventory_types": ["scrolls", "books", "components"]
+    },
+    {
+      "id": "noble",
+      "personality_ranges": {
+        "greed": [40, 80],
+        "honesty": [30, 70],
+        "friendliness": [20, 60]
+      },
+      "common_traits": ["proud", "ambitious", "political"],
+      "inventory_types": ["luxuries", "jewelry", "weapons"]
+    }
+  ]
+}

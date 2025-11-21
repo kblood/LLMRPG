@@ -849,6 +849,11 @@ class OllamaRPGApp {
     document.getElementById('replay-list-section').classList.add('hidden');
     document.getElementById('replay-playback-section').classList.remove('hidden');
 
+    // Show game UI panels for replay (player, quests, world, time)
+    document.getElementById('player-panel').classList.remove('hidden');
+    document.querySelector('.world-panel').classList.remove('hidden');
+    document.querySelector('.quest-panel').classList.remove('hidden');
+
     // Set replay info
     document.getElementById('replay-filename').textContent = filename;
     document.getElementById('replay-events').textContent = this.currentReplay.events?.length || 0;
@@ -868,6 +873,11 @@ class OllamaRPGApp {
     this.replayPlaying = false;
     this.replaySpeed = 1.0;
     document.getElementById('replay-content').innerHTML = '';
+
+    // Initialize UI with initial state
+    if (this.currentReplay.initialState) {
+      this.updateGameUIFromState(this.currentReplay.initialState);
+    }
 
     this.setStatus(`Replay loaded: ${filename}`);
   }
@@ -1030,6 +1040,158 @@ class OllamaRPGApp {
 
     // Auto-scroll to bottom
     content.scrollTop = content.scrollHeight;
+
+    // Update game UI if this event has a game state snapshot
+    if (event.gameState) {
+      this.updateGameUIFromState(event.gameState);
+    }
+  }
+
+  /**
+   * Update game UI panels from a game state snapshot
+   * @param {Object} state - Game state snapshot
+   */
+  updateGameUIFromState(state) {
+    if (!state) return;
+
+    // Update player panel
+    if (state.player) {
+      document.getElementById('player-name').textContent = state.player.name || 'Unknown';
+      document.getElementById('player-level').textContent = `Lv ${state.player.level || 1}`;
+      document.getElementById('player-gold').textContent = state.player.gold || 0;
+
+      // HP
+      if (state.player.maxHP > 0) {
+        const hpPercent = (state.player.currentHP / state.player.maxHP) * 100;
+        document.getElementById('hp-text').textContent = `${state.player.currentHP}/${state.player.maxHP}`;
+        document.getElementById('hp-fill').style.width = `${hpPercent}%`;
+      }
+
+      // MP
+      if (state.player.maxMP > 0) {
+        const mpPercent = (state.player.currentMP / state.player.maxMP) * 100;
+        document.getElementById('mp-text').textContent = `${state.player.currentMP}/${state.player.maxMP}`;
+        document.getElementById('mp-fill').style.width = `${mpPercent}%`;
+      }
+
+      // XP
+      if (state.player.xpToNextLevel > 0) {
+        const xpPercent = (state.player.currentXP / state.player.xpToNextLevel) * 100;
+        document.getElementById('xp-text').textContent = `${state.player.currentXP}/${state.player.xpToNextLevel}`;
+        document.getElementById('xp-fill').style.width = `${xpPercent}%`;
+      }
+    }
+
+    // Update time display
+    if (state.time) {
+      this.updateTimeDisplay(state.time);
+    }
+
+    // Update quest panel
+    if (state.quests && state.quests.length > 0) {
+      const questList = document.getElementById('quest-list');
+      questList.innerHTML = '';
+
+      state.quests.forEach(quest => {
+        const questItem = document.createElement('div');
+        questItem.className = 'quest-item active';
+
+        const currentStage = quest.stages?.[quest.currentStage || 0];
+        questItem.innerHTML = `
+          <div class="quest-title">${quest.title}</div>
+          <div class="quest-objectives">
+            ${currentStage && currentStage.objectives ?
+              currentStage.objectives.map(obj =>
+                `<div class="objective">• ${obj}</div>`
+              ).join('') :
+              '<div class="objective">No objectives</div>'
+            }
+          </div>
+        `;
+
+        questList.appendChild(questItem);
+      });
+    }
+
+    // Update world panel
+    if (state.world) {
+      const worldLocations = document.getElementById('world-locations');
+      worldLocations.innerHTML = '';
+
+      // Cities
+      if (state.world.cities && state.world.cities.length > 0) {
+        const citiesSection = document.createElement('div');
+        citiesSection.className = 'location-category';
+        citiesSection.innerHTML = '<h4 class="category-title">🏘️ Cities & Towns</h4>';
+
+        state.world.cities.forEach(city => {
+          const cityEl = document.createElement('div');
+          cityEl.className = 'location-item';
+          cityEl.innerHTML = `
+            <div class="location-name">${city.name}</div>
+            <div class="location-meta">${city.characteristic || 'Settlement'}</div>
+          `;
+          citiesSection.appendChild(cityEl);
+        });
+
+        worldLocations.appendChild(citiesSection);
+      }
+
+      // Dungeons
+      if (state.world.dungeons && state.world.dungeons.length > 0) {
+        const dungeonsSection = document.createElement('div');
+        dungeonsSection.className = 'location-category';
+        dungeonsSection.innerHTML = '<h4 class="category-title">🏰 Dungeons</h4>';
+
+        state.world.dungeons.forEach(dungeon => {
+          const dungeonEl = document.createElement('div');
+          dungeonEl.className = 'location-item danger';
+          dungeonEl.innerHTML = `
+            <div class="location-name">${dungeon.name}</div>
+            <div class="location-meta">Danger: ${dungeon.danger}</div>
+          `;
+          dungeonsSection.appendChild(dungeonEl);
+        });
+
+        worldLocations.appendChild(dungeonsSection);
+      }
+
+      // Landmarks
+      if (state.world.landmarks && state.world.landmarks.length > 0) {
+        const landmarksSection = document.createElement('div');
+        landmarksSection.className = 'location-category';
+        landmarksSection.innerHTML = '<h4 class="category-title">🗻 Landmarks</h4>';
+
+        state.world.landmarks.forEach(landmark => {
+          const landmarkEl = document.createElement('div');
+          landmarkEl.className = 'location-item';
+          landmarkEl.innerHTML = `
+            <div class="location-name">${landmark.name}</div>
+            <div class="location-meta">${landmark.specialProperty || 'Place of interest'}</div>
+          `;
+          landmarksSection.appendChild(landmarkEl);
+        });
+
+        worldLocations.appendChild(landmarksSection);
+      }
+    }
+
+    // Update NPC panel
+    if (state.npcs && state.npcs.length > 0) {
+      const npcList = document.getElementById('npc-list');
+      npcList.innerHTML = '';
+
+      state.npcs.slice(0, 10).forEach(npc => {
+        const npcItem = document.createElement('div');
+        npcItem.className = 'npc-item';
+        npcItem.innerHTML = `
+          <div class="npc-item-name">${npc.name}</div>
+          <div class="npc-item-role">${npc.role}</div>
+          <div class="npc-item-relationship">Relationship: ${npc.relationship || 0}</div>
+        `;
+        npcList.appendChild(npcItem);
+      });
+    }
   }
 
   closeReplayViewer() {
@@ -1037,6 +1199,11 @@ class OllamaRPGApp {
 
     // Stop playback if playing
     this.stopReplay();
+
+    // Hide game UI panels
+    document.getElementById('player-panel').classList.add('hidden');
+    document.querySelector('.world-panel').classList.add('hidden');
+    document.querySelector('.quest-panel').classList.add('hidden');
 
     // Hide replay panel, show welcome
     document.getElementById('replay-panel').classList.add('hidden');
