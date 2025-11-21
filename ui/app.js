@@ -1098,6 +1098,25 @@ class OllamaRPGApp {
       contentEl.innerHTML = `<strong>Level Up!</strong> Now level ${data.newLevel}`;
     } else if (event.type === 'quest_started') {
       contentEl.innerHTML = `<strong>Quest:</strong> ${data.questTitle || 'New quest accepted'}`;
+    } else if (event.type === 'inventory_changed') {
+      let message = '';
+      if (data.changeType === 'gold_gained') {
+        message = `💰 <strong>Gold gained:</strong> +${data.items?.[0]?.gold || 0}`;
+      } else if (data.changeType === 'gold_lost') {
+        message = `💰 <strong>Gold lost:</strong> -${data.items?.[0]?.gold || 0}`;
+      } else if (data.changeType === 'item_found') {
+        message = `📦 <strong>Found item:</strong> ${data.items?.[0]?.itemId || 'Unknown'}`;
+      } else if (data.changeType === 'item_added') {
+        message = `📦 <strong>Item added:</strong> ${data.items?.[0]?.name || 'Unknown'} x${data.items?.[0]?.quantity || 1}`;
+      } else if (data.changeType === 'item_removed') {
+        message = `📦 <strong>Item removed:</strong> ${data.items?.[0]?.name || 'Unknown'} x${data.items?.[0]?.quantity || 1}`;
+      } else {
+        message = `Inventory changed: ${data.changeType}`;
+      }
+      if (data.reason) {
+        message += ` <em>(${data.reason})</em>`;
+      }
+      contentEl.innerHTML = message;
     } else {
       contentEl.textContent = JSON.stringify(data || {}, null, 2);
     }
@@ -1251,6 +1270,50 @@ class OllamaRPGApp {
         npcList.appendChild(npcItem);
       });
     }
+
+    // Update inventory panel
+    if (state.inventory) {
+      this.updateInventoryDisplay(state.inventory);
+    }
+  }
+
+  updateInventoryDisplay(inventory) {
+    if (!inventory) {
+      document.getElementById('inventory-list').innerHTML = '<p class="no-items">No items</p>';
+      document.getElementById('inventory-slots').textContent = '0/20';
+      document.getElementById('inventory-weight').textContent = '0/100';
+      return;
+    }
+
+    const inventoryList = document.getElementById('inventory-list');
+    const items = inventory.items || [];
+
+    if (items.length === 0) {
+      inventoryList.innerHTML = '<p class="no-items">No items</p>';
+    } else {
+      inventoryList.innerHTML = '';
+      items.forEach(item => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'inventory-item';
+        itemEl.innerHTML = `
+          <div class="item-name">${item.name || item.itemName}</div>
+          <div class="item-meta">
+            <span class="item-qty">x${item.quantity || 1}</span>
+            ${item.rarity ? `<span class="item-rarity">${item.rarity}</span>` : ''}
+          </div>
+        `;
+        inventoryList.appendChild(itemEl);
+      });
+    }
+
+    // Update capacity display
+    const currentSlots = items.length;
+    const maxSlots = inventory.maxSlots || 20;
+    document.getElementById('inventory-slots').textContent = `${currentSlots}/${maxSlots}`;
+
+    const currentWeight = inventory.currentWeight || 0;
+    const maxWeight = inventory.maxWeight || 100;
+    document.getElementById('inventory-weight').textContent = `${currentWeight}/${maxWeight}`;
   }
 
   closeReplayViewer() {

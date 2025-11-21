@@ -438,6 +438,11 @@ export class CombatSystem {
     if (rewards.gold > 0 && protagonist.inventory) {
       protagonist.inventory.addGold(rewards.gold);
       this.logger.info(`${protagonist.name} gained ${rewards.gold} gold`);
+      this.eventBus.emit('inventory:gold_gained', {
+        character: protagonist.name,
+        amount: rewards.gold,
+        reason: 'combat_reward'
+      });
     }
 
     // Apply loot
@@ -445,6 +450,11 @@ export class CombatSystem {
       rewards.loot.forEach(item => {
         // TODO: Add actual items to inventory when item system is ready
         this.logger.info(`${protagonist.name} found ${item.itemId}`);
+        this.eventBus.emit('inventory:item_found', {
+          character: protagonist.name,
+          itemId: item.itemId,
+          reason: 'combat_reward'
+        });
       });
     }
   }

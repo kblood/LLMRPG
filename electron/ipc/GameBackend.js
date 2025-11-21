@@ -229,6 +229,22 @@ export class GameBackend {
         }, this.player?.id || 'system');
       }
     });
+
+    // Listen for inventory events
+    this.eventBus.on('inventory:gold_gained', ({ character, amount, reason }) => {
+      console.log(`[GameBackend] ${character} gained ${amount} gold (${reason})`);
+      this._logInventoryChange('gold_gained', [{ gold: amount }], reason);
+    });
+
+    this.eventBus.on('inventory:item_found', ({ character, itemId, reason }) => {
+      console.log(`[GameBackend] ${character} found item: ${itemId} (${reason})`);
+      this._logInventoryChange('item_found', [{ itemId }], reason);
+    });
+
+    this.eventBus.on('combat:gold_lost', ({ character, goldLost }) => {
+      console.log(`[GameBackend] ${character} lost ${goldLost} gold`);
+      this._logInventoryChange('gold_lost', [{ gold: goldLost }], 'defeat');
+    });
   }
 
   async checkOllama() {
@@ -1450,9 +1466,28 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
   }
 
   /**
-   * Capture current game state for replay
-   * @returns {Object} Game state snapshot
+   * Log inventory change event
+   * Called when items are added/removed from player inventory
    */
+  _logInventoryChange(changeType, items, reason = '') {
+    if (!this.replayLogger) return;
+
+    try {
+      const gameState = this._captureGameState();
+
+      // Log the inventory change event
+      this.replayLogger.logEvent(this.session.frame, 'inventory_changed', {
+        changeType: changeType, // 'item_added', 'item_removed', 'gold_gained', 'gold_spent'
+        items: items, // Array of { itemId, name, quantity } or { gold, amount }
+        reason: reason // e.g., 'combat_reward', 'quest_reward', 'purchased', etc.
+      }, 'system', gameState);
+
+      console.log(`[GameBackend] Logged inventory change: ${changeType} (${reason})`);
+    } catch (error) {
+      console.error('[GameBackend] Failed to log inventory change:', error);
+    }
+  }
+
   _captureGameState() {
     if (!this.player || !this.session) {
       return null;
@@ -1522,12 +1557,33 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
         relationship: npc.relationships?.getRelationship?.(this.player.id) || 0
       })) : [];
 
+      // Get inventory data
+      const inventory = null;
+      if (this.player.inventory) {
+        const allItems = this.player.inventory.getAllItems();
+        inventory = {
+          items: allItems.map(entry => ({
+            itemId: entry.item.id,
+            name: entry.item.name,
+            quantity: entry.quantity,
+            weight: entry.item.weight,
+            rarity: entry.item.rarity,
+            type: entry.item.type
+          })),
+          currentWeight: this.player.inventory.getTotalWeight(),
+          maxWeight: this.player.inventory.maxWeight,
+          maxSlots: this.player.inventory.maxSlots,
+          gold: this.player.inventory.gold
+        };
+      }
+
       return {
         player: playerStats,
         time: timeData,
         quests: quests,
         world: world,
         npcs: npcs,
+        inventory: inventory,
         frame: this.session.frame
       };
     } catch (error) {
