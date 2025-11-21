@@ -875,20 +875,21 @@ class OllamaRPGApp {
     this.replaySpeed = 1.0;
     document.getElementById('replay-content').innerHTML = '';
 
-    // Initialize UI with initial state for player info only, but clear quests/world
-    // They will be populated as events are played
+    // Initialize UI with initial state for player info only, but clear quests/world/time
+    // Time and other state will be populated as events are played
     if (this.currentReplay.initialState) {
       const playerOnlyState = {
         player: this.currentReplay.initialState.player,
-        time: this.currentReplay.initialState.time,
-        // Don't include quests, world, npcs - let events populate them
+        // Don't include time, quests, world, npcs - let events populate them
       };
       this.updateGameUIFromState(playerOnlyState);
 
-      // Clear quests and world panels so they start empty
+      // Clear quests, world, and time panels so they start empty
       document.getElementById('quest-list').innerHTML = '';
       document.getElementById('world-locations').innerHTML = '';
       document.getElementById('npc-list').innerHTML = '';
+      document.getElementById('game-time').textContent = '--:--';
+      document.getElementById('time-of-day').textContent = 'Awaiting events...';
     }
 
     this.setStatus(`Replay loaded: ${filename}`);
@@ -968,14 +969,15 @@ class OllamaRPGApp {
     if (this.currentReplay.initialState) {
       const playerOnlyState = {
         player: this.currentReplay.initialState.player,
-        time: this.currentReplay.initialState.time,
       };
       this.updateGameUIFromState(playerOnlyState);
 
-      // Clear quests and world panels
+      // Clear quests and world panels, reset time
       document.getElementById('quest-list').innerHTML = '';
       document.getElementById('world-locations').innerHTML = '';
       document.getElementById('npc-list').innerHTML = '';
+      document.getElementById('game-time').textContent = '--:--';
+      document.getElementById('time-of-day').textContent = 'Awaiting events...';
     }
 
     // Display all events up to the target frame and rebuild UI state
@@ -1036,45 +1038,68 @@ class OllamaRPGApp {
   displayReplayEvent(event) {
     const content = document.getElementById('replay-content');
 
-    const eventEl = document.createElement('div');
-    eventEl.className = `replay-event ${event.type.includes('dialogue') ? 'dialogue' : 'conversation'}`;
+    // Don't display time_changed events in the log (just update the UI)
+    // Time is only shown if the chronicler describes it
+    if (event.type !== 'time_changed') {
+      const eventEl = document.createElement('div');
+      eventEl.className = `replay-event ${event.type.includes('dialogue') ? 'dialogue' : event.type.includes('action') ? 'action' : 'event'}`;
 
-    const header = document.createElement('div');
-    header.className = 'replay-event-header';
-    header.innerHTML = `
-      <span class="replay-event-type">${event.type}</span>
-      <span>Frame: ${event.frame}</span>
-    `;
+      const header = document.createElement('div');
+      header.className = 'replay-event-header';
+      header.innerHTML = `
+        <span class="replay-event-type">${this.formatEventType(event.type)}</span>
+        <span class="replay-event-frame">Frame: ${event.frame}</span>
+      `;
 
-    const eventContent = document.createElement('div');
-    eventContent.className = 'replay-event-content';
+      const eventContent = document.createElement('div');
+      eventContent.className = 'replay-event-content';
 
-    // Format event data based on type
-    if (event.type === 'dialogue_line') {
-      eventContent.textContent = `${event.characterId || event.data.speakerId}: ${event.data.text || ''}`;
-    } else if (event.type === 'conversation_started') {
-      eventContent.textContent = `Conversation started between ${event.data.protagonistId} and ${event.data.npcId}`;
-    } else if (event.type === 'conversation_ended') {
-      eventContent.textContent = `Conversation ended (${event.data.turns} turns)`;
-    } else {
-      eventContent.textContent = JSON.stringify(event.data || {}, null, 2);
+      // Format event data based on type
+      this.formatEventContent(event, eventContent);
+
+      eventEl.appendChild(header);
+      eventEl.appendChild(eventContent);
+      content.appendChild(eventEl);
+
+      // Auto-scroll to bottom
+      content.scrollTop = content.scrollHeight;
     }
-
-    eventEl.appendChild(header);
-    eventEl.appendChild(eventContent);
-    content.appendChild(eventEl);
-
-    // Auto-scroll to bottom
-    content.scrollTop = content.scrollHeight;
 
     // Update game UI if this event has a game state snapshot
     if (event.gameState) {
-      console.log(`[Replay] Event ${event.type} (frame ${event.frame}) has gameState`, event.gameState);
-      console.log('[Replay] Calling updateGameUIFromState...');
+      console.log(`[Replay] Event ${event.type} (frame ${event.frame}) updating UI`);
       this.updateGameUIFromState(event.gameState);
-      console.log('[Replay] UI update complete');
+    }
+  }
+
+  formatEventType(type) {
+    // Convert snake_case to readable format
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  }
+
+  formatEventContent(event, contentEl) {
+    const data = event.data || {};
+
+    if (event.type === 'dialogue_line') {
+      contentEl.innerHTML = `<strong>${event.characterId || data.speakerId}:</strong> ${data.text || ''}`;
+    } else if (event.type === 'conversation_started') {
+      contentEl.innerHTML = `<em>Conversation began with ${data.npcName || data.npcId}</em>`;
+    } else if (event.type === 'conversation_ended') {
+      contentEl.innerHTML = `<em>Conversation ended (${data.turns || 0} turns)</em>`;
+    } else if (event.type === 'action_performed') {
+      contentEl.innerHTML = `<strong>Action:</strong> ${data.action || data.type || 'Performed action'}<br><em>${data.description || data.reason || ''}</em>`;
+    } else if (event.type === 'combat_encounter') {
+      contentEl.innerHTML = `<strong>Combat!</strong> Encountered ${data.enemies?.map(e => e.name).join(', ') || 'enemies'}<br><em>Outcome: ${data.outcome || 'Unknown'}</em>`;
+    } else if (event.type === 'loot_obtained') {
+      contentEl.innerHTML = `<strong>Loot:</strong> ${data.itemName || 'Item'} x${data.quantity || 1}`;
+    } else if (event.type === 'gold_changed') {
+      contentEl.innerHTML = `<strong>Gold:</strong> ${data.amount > 0 ? '+' : ''}${data.amount} (Total: ${data.newTotal})`;
+    } else if (event.type === 'level_up') {
+      contentEl.innerHTML = `<strong>Level Up!</strong> Now level ${data.newLevel}`;
+    } else if (event.type === 'quest_started') {
+      contentEl.innerHTML = `<strong>Quest:</strong> ${data.questTitle || 'New quest accepted'}`;
     } else {
-      console.log(`[Replay] Event ${event.type} (frame ${event.frame}) has NO gameState`);
+      contentEl.textContent = JSON.stringify(data || {}, null, 2);
     }
   }
 
