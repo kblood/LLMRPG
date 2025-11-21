@@ -680,8 +680,8 @@ export class GameBackend {
         } else if (action.type === 'investigate' || action.type === 'travel' || action.type === 'search') {
           // Check for combat encounter when investigating, traveling, or searching
           const location = {
-            name: context.location || 'Millhaven',
-            dangerLevel: this._getLocationDangerLevel(context.location || 'Millhaven')
+            name: action.location || 'Millhaven',
+            dangerLevel: this._getLocationDangerLevel(action.location || 'Millhaven')
           };
 
           const timeOfDay = this.session.getTimeOfDay();
