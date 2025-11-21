@@ -1,7 +1,7 @@
 # OllamaRPG - Complete Feature Status Report
 
-**Last Updated**: 2025-11-16  
-**Development Status**: Active Development - Core Systems Complete
+**Last Updated**: 2025-11-21
+**Development Status**: Active Development - Replay System Enhanced with Inventory Tracking
 
 ---
 
@@ -19,11 +19,11 @@
 - Quest completion mechanics
 - Group conversations (3+ NPCs)
 - Enhanced NPC behaviors
+- Advanced replay features (comparison, filters)
 
 ### What's Missing ❌
-- Movement/pathfinding system
-- Combat system
-- Inventory system
+- Movement/pathfinding system (stub exists)
+- Inventory management in manual mode (replay only)
 - Web UI (planned)
 - Visual assets (not needed for current phase)
 
@@ -384,11 +384,11 @@ eventBus.emit('dialogue:started', { npcId: 'mara' });
 
 ---
 
-### 6. Replay System (90% Complete 🔄)
+### 6. Replay System (100% Complete ✅)
 
 #### ReplayLogger
-**Status**: ✅ Complete and Tested  
-**Location**: `src/replay/ReplayLogger.js`  
+**Status**: ✅ Complete and Tested
+**Location**: `src/replay/ReplayLogger.js`
 **Features**:
 - Singleton pattern for consistent logging
 - Event logging with frame numbers and timestamps
@@ -396,6 +396,7 @@ eventBus.emit('dialogue:started', { npcId: 'mara' });
 - Checkpoint system for state snapshots
 - Proper initialization and reset
 - Statistics tracking
+- Game state snapshot capture with inventory data
 
 **Events Logged**:
 - game_start, game_end
@@ -404,6 +405,12 @@ eventBus.emit('dialogue:started', { npcId: 'mara' });
 - player_message, npc_response
 - character_moved
 - quest_started, quest_completed
+- inventory_changed (items, gold, weights, slots)
+- time_changed
+- action_performed
+- combat_encounter
+- loot_obtained
+- level_up
 - And more...
 
 #### ReplayFile
@@ -446,18 +453,25 @@ eventBus.emit('dialogue:started', { npcId: 'mara' });
 - Enables seeking/jumping in replays
 
 **What's Working**:
-- ✅ Event logging (all types)
+- ✅ Event logging (all types including inventory_changed)
 - ✅ LLM call recording
 - ✅ Checkpoint creation
 - ✅ File save/load with compression
-- ✅ Replay viewer tool
+- ✅ Replay viewer tool with full playback engine
+- ✅ Game state reconstruction from events
+- ✅ Inventory display in left panel
+- ✅ Event log viewer in replay
+- ✅ Event-driven UI updates (no automatic time updates)
+- ✅ Formatted event display with icons
 
-**What's Missing**:
-- ❌ Replay playback engine
-- ❌ Timeline scrubbing UI
-- ❌ Auto-integration with game systems
-- ❌ Visual timeline in UI
-- ❌ Replay comparison tools
+**What's Included in Replay Viewer**:
+- ✅ Play/pause/stop controls
+- ✅ Frame scrubbing with slider
+- ✅ Speed controls (0.5x, 1x, 2x, 5x)
+- ✅ Previous/next frame navigation
+- ✅ Event log display (actions, dialogue, inventory changes)
+- ✅ Full game UI update (character, inventory, NPCs, quests, world)
+- ✅ Time display updates only on time_changed events
 
 **Test Commands**:
 - `node test-replay-system.js` - Full test suite
