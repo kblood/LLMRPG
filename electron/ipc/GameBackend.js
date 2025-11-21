@@ -643,6 +643,10 @@ export class GameBackend {
           if (!gameState) {
             console.warn('[GameBackend] _captureGameState() returned null for time_changed event');
           }
+          // Ensure gameState has the correct time from timeUpdate
+          if (gameState) {
+            gameState.time = timeUpdate;
+          }
           this.replayLogger.logEvent(this.session.frame, 'time_changed', {
             time: timeUpdate.time,
             timeOfDay: timeUpdate.timeOfDay,
