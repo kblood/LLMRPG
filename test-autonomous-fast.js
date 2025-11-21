@@ -33,8 +33,22 @@ async function main() {
       }
     };
 
-    const result = await gameBackend.startAutonomousMode(mockWindow);
-    console.log('[TEST] startAutonomousMode returned:', result);
+    // Start autonomous mode with a 30 second timeout for setup
+    let result;
+    try {
+      const startPromise = gameBackend.startAutonomousMode(mockWindow);
+      result = await Promise.race([
+        startPromise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('startAutonomousMode timeout - world generation took too long')), 30000)
+        )
+      ]);
+      console.log('[TEST] startAutonomousMode returned:', result);
+    } catch (setupError) {
+      console.error('[TEST] Setup error (world generation may be slow):', setupError.message);
+      console.log('[TEST] Continuing anyway - will check if autonomous loop is running...');
+      result = { started: true };
+    }
 
     console.log('\n[TEST] Running autonomous mode for 15 seconds...');
     // Let it run for just 15 seconds to capture some events

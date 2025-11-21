@@ -507,73 +507,23 @@ export class GameBackend {
     this.autonomousMode = true;
     this.window = window;
 
-    // Generate world locations
-    console.log('[GameBackend] Generating world locations...');
-    const world = await this.gameMaster.generateWorld(this.player);
-
-    // Store world in session for NPC access
-    this.session.world = world;
-
-    // Give NPCs knowledge of the world
-    this._giveNPCsWorldKnowledge(world);
-
-    // Send world to UI
-    this._sendToUI('autonomous:world-generated', {
-      world: world
+    // Start the autonomous loop immediately (don't await - let it run in background)
+    // This ensures the loop starts logging events right away, even while setup is happening
+    this._runAutonomousLoop().catch(error => {
+      console.error('[GameBackend] Autonomous loop crashed:', error);
+      this.autonomousMode = false;
     });
-
-    // Generate opening narration
-    console.log('[GameBackend] Generating opening narration...');
-    const openingNarration = await this.gameMaster.generateOpeningNarration(
-      this.player,
-      world,
-      { timeOfDay: this.session.getTimeOfDay() }
-    );
-
-    // Send opening narration to UI
-    this._sendToUI('autonomous:opening-narration', {
-      narration: openingNarration
-    });
-
-    // Wait for narration to be read
-    await this._sleep(5000);
-
-    // Generate main quest
-    console.log('[GameBackend] Generating main quest...');
-    const mainQuest = await this.gameMaster.generateMainQuest(this.player, world);
-
-    if (mainQuest) {
-      // Add quest to session
-      const questId = this.session.questManager.createQuest(mainQuest);
-      mainQuest.id = questId;
-
-      // Send quest to UI
-      this._sendToUI('autonomous:main-quest', {
-        quest: mainQuest
-      });
-
-      console.log(`[GameBackend] Main quest created: ${mainQuest.title}`);
-    }
-
-    // Wait before starting conversations
-    await this._sleep(3000);
 
     // Log game start event
     if (this.replayLogger) {
       this.replayLogger.logEvent(this.session.frame, 'game_start', {
         mode: 'autonomous',
         seed: this.session.seed,
-        mainQuest: mainQuest?.title
+        mainQuest: 'TBD'
       }, 'system');
     }
 
-    // Start the autonomous loop (don't await - let it run in background)
-    // The user will manually call stopAutonomous to end it
-    this._runAutonomousLoop().catch(error => {
-      console.error('[GameBackend] Autonomous loop crashed:', error);
-      this.autonomousMode = false;
-    });
-
+    // Return immediately so loop can run - setup happens in background
     return { started: true };
   }
 
