@@ -180,9 +180,50 @@ export class GameBackend {
       // Forward to renderer if needed
     });
 
-    // Listen for quest events
+    // Listen for quest events and log to replay
     this.eventBus.on('quest:created', ({ quest }) => {
       console.log('[GameBackend] Quest created:', quest.title);
+      if (this.replayLogger) {
+        this.replayLogger.logEvent(this.session.frame, 'quest_started', {
+          questId: quest.id,
+          title: quest.title,
+          description: quest.description,
+          objectives: quest.stages?.[0]?.objectives || []
+        }, 'system');
+      }
+    });
+
+    this.eventBus.on('quest:completed', ({ quest, rewards }) => {
+      console.log('[GameBackend] Quest completed:', quest.title);
+      if (this.replayLogger) {
+        this.replayLogger.logEvent(this.session.frame, 'quest_completed', {
+          questId: quest.id,
+          title: quest.title,
+          rewards: rewards || {}
+        }, this.player?.id || 'system');
+      }
+    });
+
+    this.eventBus.on('quest:objective-completed', ({ quest, objective }) => {
+      if (this.replayLogger) {
+        this.replayLogger.logEvent(this.session.frame, 'quest_objective_completed', {
+          questId: quest.id,
+          objectiveId: objective.id,
+          description: objective.description
+        }, this.player?.id || 'system');
+      }
+    });
+
+    // Listen for combat events
+    this.eventBus.on('combat:level_up', ({ character, newLevel }) => {
+      console.log('[GameBackend] Level up:', character, 'to level', newLevel);
+      if (this.replayLogger) {
+        this.replayLogger.logEvent(this.session.frame, 'level_up', {
+          characterName: character,
+          newLevel: newLevel,
+          statsRestored: true
+        }, this.player?.id || 'system');
+      }
     });
   }
 
@@ -558,6 +599,19 @@ export class GameBackend {
         const timeUpdate = this.session.tick(timeDelta);
         this._sendToUI('game:time-update', timeUpdate);
 
+        // Log time changes to replay
+        if (this.replayLogger) {
+          this.replayLogger.logEvent(this.session.frame, 'time_changed', {
+            time: timeUpdate.time,
+            timeOfDay: timeUpdate.timeOfDay,
+            weather: timeUpdate.weather,
+            season: timeUpdate.season,
+            day: timeUpdate.day,
+            year: timeUpdate.year,
+            minutesAdvanced: timeDelta
+          }, 'system');
+        }
+
         // Get available NPCs
         const availableNPCs = Array.from(this.npcs.values()).filter(npc =>
           !this.pastConversations.includes(npc.id)
@@ -672,11 +726,25 @@ export class GameBackend {
             if (this.replayLogger) {
               this.replayLogger.logEvent(this.session.frame++, 'combat_encounter', {
                 location: location.name,
-                enemies: encounter.enemies.map(e => e.name),
+                enemies: encounter.enemies.map(e => ({ name: e.name, level: e.stats?.level || 1 })),
                 outcome: combatResult.outcome,
                 rounds: combatResult.rounds,
                 rewards: combatResult.rewards
               }, this.player.id);
+
+              // Log rewards separately for easier replay analysis
+              if (combatResult.outcome === 'victory' && combatResult.rewards) {
+                if (combatResult.rewards.gold > 0) {
+                  this._logGoldChange(this.player, combatResult.rewards.gold, 'Combat victory', 'gain');
+                }
+
+                if (combatResult.rewards.loot && combatResult.rewards.loot.length > 0) {
+                  this.replayLogger.logEvent(this.session.frame, 'loot_obtained', {
+                    items: combatResult.rewards.loot,
+                    source: 'combat'
+                  }, this.player.id);
+                }
+              }
             }
 
             // Wait after combat
@@ -1206,6 +1274,23 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
 
     // Default to low danger for unknown locations
     return 'low';
+  }
+
+  /**
+   * Log gold changes to replay
+   */
+  _logGoldChange(character, amount, reason, operation) {
+    if (!this.replayLogger || !character) return;
+
+    const newTotal = character.getGold ? character.getGold() : 0;
+    this.replayLogger.logEvent(this.session.frame, 'gold_changed', {
+      characterId: character.id,
+      characterName: character.name,
+      amount: Math.abs(amount),
+      operation: operation, // 'gain' or 'lose'
+      reason: reason,
+      newTotal: newTotal
+    }, character.id);
   }
 
   /**
