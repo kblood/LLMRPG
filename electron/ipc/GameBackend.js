@@ -142,8 +142,9 @@ export class GameBackend {
         behavior: 'balanced'
       });
 
-      // Initialize Replay Logger
+      // Initialize Replay Logger with full game state
       this.replayLogger = new ReplayLogger(this.session.seed);
+      const initialGameState = this._captureGameState();
       this.replayLogger.initialize({
         seed: this.session.seed,
         startTime: Date.now(),
@@ -152,7 +153,8 @@ export class GameBackend {
           ...Array.from(this.npcs.values()).map(npc => ({ id: npc.id, name: npc.name, role: npc.role }))
         ],
         gameVersion: '1.0.0',
-        mode: 'autonomous_electron'
+        mode: 'autonomous_electron',
+        ...initialGameState  // Include full game state in initial state
       });
 
       // Create replays directory if it doesn't exist
@@ -1467,7 +1469,7 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
       } : null;
 
       // Get nearby NPCs
-      const npcs = this.npcs ? this.npcs.map(npc => ({
+      const npcs = this.npcs ? Array.from(this.npcs.values()).map(npc => ({
         id: npc.id,
         name: npc.name,
         role: npc.role,
