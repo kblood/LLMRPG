@@ -875,9 +875,20 @@ class OllamaRPGApp {
     this.replaySpeed = 1.0;
     document.getElementById('replay-content').innerHTML = '';
 
-    // Initialize UI with initial state
+    // Initialize UI with initial state for player info only, but clear quests/world
+    // They will be populated as events are played
     if (this.currentReplay.initialState) {
-      this.updateGameUIFromState(this.currentReplay.initialState);
+      const playerOnlyState = {
+        player: this.currentReplay.initialState.player,
+        time: this.currentReplay.initialState.time,
+        // Don't include quests, world, npcs - let events populate them
+      };
+      this.updateGameUIFromState(playerOnlyState);
+
+      // Clear quests and world panels so they start empty
+      document.getElementById('quest-list').innerHTML = '';
+      document.getElementById('world-locations').innerHTML = '';
+      document.getElementById('npc-list').innerHTML = '';
     }
 
     this.setStatus(`Replay loaded: ${filename}`);
@@ -950,10 +961,24 @@ class OllamaRPGApp {
       this.pauseReplay();
     }
 
-    // Clear content
+    // Clear content and UI
     document.getElementById('replay-content').innerHTML = '';
 
-    // Display all events up to the target frame
+    // Reset UI to initial state (player info only)
+    if (this.currentReplay.initialState) {
+      const playerOnlyState = {
+        player: this.currentReplay.initialState.player,
+        time: this.currentReplay.initialState.time,
+      };
+      this.updateGameUIFromState(playerOnlyState);
+
+      // Clear quests and world panels
+      document.getElementById('quest-list').innerHTML = '';
+      document.getElementById('world-locations').innerHTML = '';
+      document.getElementById('npc-list').innerHTML = '';
+    }
+
+    // Display all events up to the target frame and rebuild UI state
     for (let i = 0; i <= frameNumber; i++) {
       this.displayReplayEvent(this.currentReplay.events[i]);
     }
