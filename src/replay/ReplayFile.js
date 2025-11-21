@@ -60,8 +60,11 @@ class ReplayFile {
         }
 
         try {
+          console.log(`[ReplayFile] Loaded compressed replay file: ${filename} (${data.length} bytes)`);
           const decompressed = ReplayFile.decompress(data);
+          console.log(`[ReplayFile] Decompressed replay data: ${decompressed.length} characters`);
           const replayData = JSON.parse(decompressed);
+          console.log(`[ReplayFile] Parsed replay data - Events: ${replayData.events?.length || 0}, LLM Calls: ${replayData.llmCalls?.length || 0}`);
 
           // Validate replay data structure
           if (!replayData.header || !Array.isArray(replayData.events)) {
@@ -91,6 +94,8 @@ class ReplayFile {
           throw new Error('Replay data must contain header');
         }
 
+        console.log(`[ReplayFile] Saving replay with ${replayData.events?.length || 0} events to ${filename}`);
+
         // Create directory if it doesn't exist
         const dir = path.dirname(filename);
         if (!fs.existsSync(dir)) {
@@ -99,13 +104,16 @@ class ReplayFile {
 
         // Serialize and compress
         const jsonString = JSON.stringify(replayData);
+        console.log(`[ReplayFile] Serialized JSON: ${jsonString.length} characters`);
         const compressed = ReplayFile.compress(jsonString);
+        console.log(`[ReplayFile] Compressed size: ${compressed.length} bytes`);
 
         fs.writeFile(filename, compressed, (err) => {
           if (err) {
             reject(new Error(`Failed to write replay file: ${err.message}`));
             return;
           }
+          console.log(`[ReplayFile] Replay saved successfully: ${filename}`);
           resolve();
         });
       } catch (error) {
