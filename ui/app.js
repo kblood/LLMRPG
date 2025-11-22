@@ -416,12 +416,50 @@ class OllamaRPGApp {
       this.showTransition(data);
     });
 
+    // Action decision made
+    this.gameAPI.onAutonomousActionDecision?.((data) => {
+      console.log('[App] Action decision:', JSON.stringify(data));
+      this.setStatus(`Deciding: ${data.reason}`);
+    });
+
     // Action chosen
     this.gameAPI.onAutonomousAction((data) => {
       console.log('[App] Autonomous action:', JSON.stringify(data));
       if (data.type === 'npc_chosen') {
         this.setStatus(`${data.npcName} was chosen for conversation`);
         document.getElementById('mode-status').textContent = `Talking to ${data.npcName}`;
+      }
+    });
+
+    // Action result
+    this.gameAPI.onAutonomousActionResult?.((data) => {
+      console.log('[App] Action result:', JSON.stringify(data));
+      const narrative = data.narrative || data.description || '';
+      if (narrative) {
+        document.getElementById('gm-narration').textContent = narrative;
+      }
+      this.setStatus(`Action completed: ${data.action || 'Unknown'}`);
+    });
+
+    // Combat encounter started
+    this.gameAPI.onAutonomousCombatEncounter?.((data) => {
+      console.log('[App] Combat encounter:', JSON.stringify(data));
+      const enemies = data.enemies?.map(e => e.name).join(', ') || 'Unknown enemies';
+      document.getElementById('gm-narration').textContent = `⚔️ Combat! Encountered ${enemies}`;
+      this.setStatus(`Combat started: ${enemies}`);
+    });
+
+    // Combat result
+    this.gameAPI.onAutonomousCombatResult?.((data) => {
+      console.log('[App] Combat result:', JSON.stringify(data));
+      const outcome = data.outcome || 'Unknown';
+      const narrative = data.narrative || `Combat ended in ${outcome}!`;
+      document.getElementById('gm-narration').textContent = `${narrative}`;
+
+      if (data.xpGained) {
+        this.setStatus(`Combat victory! Gained ${data.xpGained} XP${data.goldGained ? ` and ${data.goldGained} gold` : ''}`);
+      } else {
+        this.setStatus(`Combat defeated. Lost ${data.goldLost || 0} gold.`);
       }
     });
 

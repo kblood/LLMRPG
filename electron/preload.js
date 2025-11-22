@@ -69,9 +69,29 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('autonomous:transition');
   },
 
+  onAutonomousActionDecision: (callback) => {
+    ipcRenderer.on('autonomous:action-decision', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:action-decision');
+  },
+
   onAutonomousAction: (callback) => {
     ipcRenderer.on('autonomous:action', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('autonomous:action');
+  },
+
+  onAutonomousActionResult: (callback) => {
+    ipcRenderer.on('autonomous:action-result', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:action-result');
+  },
+
+  onAutonomousCombatEncounter: (callback) => {
+    ipcRenderer.on('autonomous:combat-encounter', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:combat-encounter');
+  },
+
+  onAutonomousCombatResult: (callback) => {
+    ipcRenderer.on('autonomous:combat-result', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:combat-result');
   },
 
   onAutonomousConversationStart: (callback) => {
