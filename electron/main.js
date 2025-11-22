@@ -198,6 +198,39 @@ function setupIPCHandlers() {
       return { success: false, error: error.message };
     }
   });
+
+  // Get available Ollama models
+  ipcMain.handle('game:getAvailableModels', async () => {
+    try {
+      const result = await gameBackend.getAvailableModels();
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to get available models:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get available themes
+  ipcMain.handle('game:getAvailableThemes', async () => {
+    try {
+      const result = gameBackend.getAvailableThemes();
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to get available themes:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Generate themed world
+  ipcMain.handle('game:generateThemedWorld', async (event, config) => {
+    try {
+      const result = await gameBackend.generateThemedWorld(config);
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to generate themed world:', error);
+      return { success: false, error: error.message };
+    }
+  });
 }
 
 // App lifecycle

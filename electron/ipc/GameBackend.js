@@ -18,6 +18,8 @@ import { ReplayFile } from '../../src/replay/ReplayFile.js';
 import { LocationGrid } from '../../src/systems/grid/LocationGrid.js';
 import { GridPositionComponent } from '../../src/systems/grid/GridPositionComponent.js';
 import { NPCScheduleSystem } from '../../src/systems/npc/NPCScheduleSystem.js';
+import { ThemeEngine } from '../../src/systems/theme/ThemeEngine.js';
+import { DynamicContentGenerator } from '../../src/systems/theme/DynamicContentGenerator.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -1802,5 +1804,216 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
     this.npcs = null;
     this.player = null;
     this.initialized = false;
+  }
+
+  /**
+   * Get available Ollama models
+   */
+  async getAvailableModels() {
+    try {
+      if (!this.ollama) {
+        this.ollama = OllamaService.getInstance();
+      }
+
+      const models = await this.ollama.listModels();
+      return {
+        success: true,
+        data: models || []
+      };
+    } catch (error) {
+      console.error('[GameBackend] Error getting available models:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get available game themes
+   */
+  getAvailableThemes() {
+    try {
+      const themeEngine = new ThemeEngine();
+      const themes = themeEngine.getAvailableThemes();
+
+      return {
+        success: true,
+        data: themes.map(theme => ({
+          key: theme.key || theme.name.toLowerCase().replace(/\s+/g, '-'),
+          name: theme.name,
+          description: theme.description,
+          settings: theme.settings
+        }))
+      };
+    } catch (error) {
+      console.error('[GameBackend] Error getting available themes:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Generate a themed world with dynamic content
+   */
+  async generateThemedWorld(config) {
+    try {
+      console.log('[GameBackend] Generating themed world:', config);
+
+      if (!this.ollama) {
+        this.ollama = OllamaService.getInstance();
+      }
+      if (!this.eventBus) {
+        this.eventBus = EventBus.getInstance();
+      }
+
+      // Initialize theme engine and content generator
+      const themeEngine = new ThemeEngine();
+      const contentGenerator = new DynamicContentGenerator(themeEngine, this.ollama);
+
+      // Set the selected theme
+      const selectedTheme = config.theme || 'fantasy';
+      themeEngine.setTheme(selectedTheme);
+      console.log(`[GameBackend] Theme set to: ${selectedTheme}`);
+
+      // Create GameMaster with theme support
+      const gameMaster = new GameMaster(this.ollama, this.eventBus);
+      gameMaster.setThemeEngine(themeEngine);
+      gameMaster.setContentGenerator(contentGenerator);
+
+      // Create player character
+      const playerStats = new CharacterStats({
+        strength: 12,
+        dexterity: 10,
+        constitution: 14,
+        intelligence: 11,
+        wisdom: 10,
+        charisma: 13
+      });
+
+      const playerInventory = new Inventory({ maxSlots: 20, maxWeight: 100, gold: 75 });
+      const playerEquipment = new Equipment();
+      const playerAbilities = new AbilityManager();
+
+      const playerName = config.playerName || 'Kael';
+      const player = new Character('player', playerName, {
+        role: 'protagonist',
+        personality: new Personality({
+          friendliness: 60,
+          intelligence: 70,
+          caution: 50,
+          honor: 75,
+          greed: 40,
+          aggression: 35
+        }),
+        backstory: `A curious adventurer known as ${playerName}`,
+        stats: playerStats,
+        inventory: playerInventory,
+        equipment: playerEquipment,
+        abilities: playerAbilities
+      });
+
+      // Generate opening narration
+      console.log('[GameBackend] Generating opening narration...');
+      const openingNarration = await gameMaster.generateThemedOpeningNarration(player, selectedTheme);
+
+      // Generate NPCs
+      console.log('[GameBackend] Generating NPCs...');
+      const npcCount = config.npcCount || 10;
+      const npcs = await contentGenerator.generateNPCRoster(npcCount, {});
+      const npcMap = new Map();
+      npcs.forEach((npc, idx) => {
+        npc.id = `npc_${idx}`;
+        npcMap.set(npc.id, new Character(npc.id, npc.name, {
+          role: npc.role,
+          archetype: npc.archetype,
+          personality: new Personality(npc.personality || {
+            friendliness: 50,
+            intelligence: 50,
+            caution: 50,
+            honor: 50,
+            greed: 50,
+            aggression: 50
+          }),
+          backstory: npc.backstory,
+          stats: new CharacterStats()
+        }));
+      });
+
+      // Generate quests
+      console.log('[GameBackend] Generating quests...');
+      const sidequests = [];
+      for (let i = 0; i < (config.questCount || 5); i++) {
+        const quest = await contentGenerator.generateQuest({});
+        sidequests.push({
+          ...quest,
+          id: `quest_${i}`
+        });
+      }
+
+      // Generate main quest
+      console.log('[GameBackend] Generating main quest...');
+      const mainQuest = await contentGenerator.generateMainQuest(player, {});
+
+      // Generate items
+      console.log('[GameBackend] Generating items...');
+      const items = [];
+      const categories = ['weapons', 'armor', 'artifacts'];
+      for (let i = 0; i < (config.itemCount || 15); i++) {
+        const category = categories[i % categories.length];
+        const item = await contentGenerator.generateItem({ category });
+        items.push({
+          ...item,
+          id: `item_${i}`
+        });
+      }
+
+      // Generate locations
+      console.log('[GameBackend] Generating locations...');
+      const locations = [];
+      for (let i = 0; i < (config.locationCount || 8); i++) {
+        const location = await contentGenerator.generateLocation({});
+        locations.push({
+          ...location,
+          id: `location_${i}`
+        });
+      }
+
+      const worldConfig = {
+        title: config.worldTitle || 'Untitled World',
+        theme: selectedTheme,
+        playerName: playerName,
+        openingNarration,
+        npcs: npcs.map(npc => ({
+          id: npc.id,
+          name: npc.name,
+          role: npc.role,
+          archetype: npc.archetype,
+          backstory: npc.backstory,
+          personality: npc.personality
+        })),
+        quests: {
+          main: mainQuest,
+          side: sidequests
+        },
+        items: items,
+        locations: locations,
+        generatedAt: new Date().toISOString()
+      };
+
+      console.log('[GameBackend] World generation complete');
+      return {
+        success: true,
+        data: worldConfig
+      };
+    } catch (error) {
+      console.error('[GameBackend] Error generating themed world:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 }

@@ -128,7 +128,12 @@ contextBridge.exposeInMainWorld('gameAPI', {
   onReplaySaved: (callback) => {
     ipcRenderer.on('replay:saved', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('replay:saved');
-  }
+  },
+
+  // Theme and LLM management
+  getAvailableModels: () => ipcRenderer.invoke('game:getAvailableModels'),
+  getAvailableThemes: () => ipcRenderer.invoke('game:getAvailableThemes'),
+  generateThemedWorld: (config) => ipcRenderer.invoke('game:generateThemedWorld', config)
 });
 
 console.log('[Preload] Game API exposed to renderer');
