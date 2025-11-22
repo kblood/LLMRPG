@@ -1558,7 +1558,7 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
       })) : [];
 
       // Get inventory data
-      const inventory = null;
+      let inventory = null;
       if (this.player.inventory) {
         const allItems = this.player.inventory.getAllItems();
         inventory = {
