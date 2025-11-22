@@ -304,9 +304,10 @@
   <script src="mainMenu.js"></script>
   <script src="app.js"></script>
   <script>
-    // Initialize main menu
+    // Initialize main menu - make it global so onclick handlers can access it
+    let mainMenu; // Global reference
     window.addEventListener('load', () => {
-      const mainMenu = new MainMenu(window.gameAPI);
+      mainMenu = new MainMenu(window.gameAPI);
       mainMenu.show();
     });
   </script>
