@@ -31,6 +31,13 @@ export class Location {
     this.childLocations = new Set(data.childLocations || []); // IDs of child locations
     this.scale = data.scale || 1; // Size multiplier (town=100, building=1, room=0.1)
 
+    // Grid dimensions for this location (fine-grained positioning within location)
+    this.grid = {
+      width: data.gridWidth || 20,   // Default 20x20 grid per location
+      height: data.gridHeight || 20,
+      cellSize: data.cellSize || 1   // Distance unit per cell
+    };
+
     // Connections to other locations
     this.exits = new Map(); // Map<direction, locationId> or Map<name, locationId>
     if (data.exits) {
@@ -359,6 +366,9 @@ export class Location {
       parentLocation: this.parentLocation,
       childLocations: Array.from(this.childLocations),
       scale: this.scale,
+      gridWidth: this.grid.width,
+      gridHeight: this.grid.height,
+      cellSize: this.grid.cellSize,
       exits: Object.fromEntries(this.exits),
       characters: Array.from(this.characters),
       items: Array.from(this.items.values()).map(entry => ({

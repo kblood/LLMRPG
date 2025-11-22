@@ -429,6 +429,14 @@ class OllamaRPGApp {
       if (data.type === 'npc_chosen') {
         this.setStatus(`${data.npcName} was chosen for conversation`);
         document.getElementById('mode-status').textContent = `Talking to ${data.npcName}`;
+
+        // Display location information if available
+        if (data.playerLocation) {
+          const locInfo = data.playerGridPosition
+            ? `At ${data.playerLocation} (${data.playerGridPosition.x}, ${data.playerGridPosition.y})`
+            : `At ${data.playerLocation}`;
+          this.addEventToLog(`📍 ${locInfo}`, 'location-info');
+        }
         // Don't add event here - onAutonomousConversationStart will add it via showConversationPanel
       }
     });
@@ -436,6 +444,21 @@ class OllamaRPGApp {
     // Action result
     this.gameAPI.onAutonomousActionResult?.((data) => {
       console.log('[App] Action result:', JSON.stringify(data));
+
+      // Show travel information if this was a travel action
+      if (data.type === 'travel' && data.originLocation && data.destinationLocation) {
+        const travelMsg = `🛤️ Traveled from ${data.originLocation} to ${data.destinationLocation}`;
+        this.addEventToLog(travelMsg, 'travel-action');
+      }
+
+      // Display current location
+      if (data.playerLocation) {
+        const locInfo = data.playerGridPosition
+          ? `At ${data.playerLocation} (${data.playerGridPosition.x}, ${data.playerGridPosition.y})`
+          : `At ${data.playerLocation}`;
+        this.addEventToLog(`📍 ${locInfo}`, 'location-info');
+      }
+
       const narrative = data.narrative || data.description || '';
       if (narrative) {
         document.getElementById('gm-narration').textContent = narrative;
@@ -499,6 +522,12 @@ class OllamaRPGApp {
       dialogueHistory.scrollTop = dialogueHistory.scrollHeight;
 
       // Don't clear - keep accumulating events
+    });
+
+    // Victory - game completed!
+    this.gameAPI.onVictory?.((data) => {
+      console.log('[App] Game victory:', JSON.stringify(data));
+      this.displayVictoryScreen(data);
     });
 
     // Error
@@ -780,6 +809,46 @@ class OllamaRPGApp {
     `;
 
     questList.appendChild(questItem);
+  }
+
+  displayVictoryScreen(data) {
+    // Add victory title to event log
+    const history = document.getElementById('dialogue-history');
+
+    // Create a grand victory header
+    const victoryEl = document.createElement('div');
+    victoryEl.className = 'event-victory';
+    victoryEl.innerHTML = `
+      <div class="victory-header">
+        <h1>⭐ VICTORY! ⭐</h1>
+        <h2>${data.questTitle}</h2>
+      </div>
+    `;
+    history.appendChild(victoryEl);
+
+    // Add the chronicler's victory narration
+    this.addEventToLog(`📖 ${data.narration}`, 'victory-narration');
+
+    // Add victory statistics
+    const statsEl = document.createElement('div');
+    statsEl.className = 'event-victory-stats';
+    statsEl.innerHTML = `
+      <div class="victory-stats">
+        <div class="stat">📅 Days Elapsed: ${data.stats?.daysElapsed || 0}</div>
+        <div class="stat">📍 Locations Visited: ${data.stats?.locationsVisited || 0}</div>
+        <div class="stat">👥 NPCs Encountered: ${data.stats?.npcsEncountered || 0}</div>
+      </div>
+    `;
+    history.appendChild(statsEl);
+
+    // Update status
+    this.setStatus('🎉 Game Complete! Quest Achieved!');
+
+    // Scroll to show victory
+    history.scrollTop = history.scrollHeight;
+
+    // Stop accepting input
+    document.getElementById('mode-status').textContent = 'Victory!';
   }
 
   addMessageToHistory(messageData) {

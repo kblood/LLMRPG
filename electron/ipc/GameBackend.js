@@ -15,6 +15,9 @@ import { CombatAI } from '../../src/systems/combat/CombatAI.js';
 import { createAllNPCs } from '../../src/data/npc-roster.js';
 import { ReplayLogger } from '../../src/replay/ReplayLogger.js';
 import { ReplayFile } from '../../src/replay/ReplayFile.js';
+import { LocationGrid } from '../../src/systems/grid/LocationGrid.js';
+import { GridPositionComponent } from '../../src/systems/grid/GridPositionComponent.js';
+import { NPCScheduleSystem } from '../../src/systems/npc/NPCScheduleSystem.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -52,6 +55,10 @@ export class GameBackend {
     this.replayLogger = null;
     this.replayDir = './replays';
     this.currentReplayFile = null;
+
+    // Grid position and NPC schedule systems
+    this.locationGrid = new LocationGrid();
+    this.npcScheduleSystem = new NPCScheduleSystem();
   }
 
   async initialize(options = {}) {
@@ -577,6 +584,14 @@ export class GameBackend {
       // Store world in session for NPC access
       this.session.world = world;
 
+      // Initialize location discovery system
+      console.log('[GameBackend] Initializing location database...');
+      this.session.initializeLocations(world);
+
+      // Initialize grid positions for player and NPCs
+      console.log('[GameBackend] Initializing grid positions...');
+      this._initializeGridPositions(world);
+
       // Give NPCs knowledge of the world
       this._giveNPCsWorldKnowledge(world);
 
@@ -706,6 +721,50 @@ export class GameBackend {
         const activeQuests = this.session.questManager ? this.session.questManager.getActiveQuests() : [];
         const activeQuest = activeQuests.length > 0 ? activeQuests[0] : null;
 
+        // Check if the main quest is complete
+        if (this.mainQuest && this.mainQuest.isCompleted && this.mainQuest.isCompleted()) {
+          console.log('[GameBackend] Main quest is complete! Generating victory narration...');
+
+          // Generate victory narration from the chronicler
+          const victoryNarration = await this.gameMaster.generateVictoryNarration(
+            this.player,
+            this.mainQuest,
+            this.session.world,
+            {
+              locationsVisited: Array.from(this.session.visitedLocations || []).length,
+              npcsEncountered: this.pastConversations.length,
+              daysElapsed: Math.floor((this.session.currentTime - this.session.startTime) / (60 * 24))
+            }
+          );
+
+          // Send victory message to UI
+          this._sendToUI('game:victory', {
+            title: 'Victory!',
+            narration: victoryNarration,
+            questTitle: this.mainQuest.title,
+            stats: {
+              daysElapsed: Math.floor((this.session.currentTime - this.session.startTime) / (60 * 24)),
+              locationsVisited: Array.from(this.session.visitedLocations || []).length,
+              npcsEncountered: this.pastConversations.length
+            }
+          });
+
+          // Log the victory event to replay
+          if (this.replayLogger) {
+            const gameState = this._captureGameState();
+            this.replayLogger.logEvent(this.session.frame, 'game_end', {
+              result: 'victory',
+              questTitle: this.mainQuest.title,
+              narration: victoryNarration
+            }, 'system', gameState);
+          }
+
+          // Stop the autonomous loop
+          this.autonomousMode = false;
+          console.log('[GameBackend] Autonomous mode ended - game complete!');
+          break;
+        }
+
         // Notify UI of action decision
         this._sendToUI('autonomous:action-decision', {
           type: action.type,
@@ -727,11 +786,17 @@ export class GameBackend {
           const chosenNPC = availableNPCs[0]; // Choose first available
           console.log(`[GameBackend] Protagonist chose to talk to ${chosenNPC.name}`);
 
+          // Get player's current location for context
+          const playerLocation = this.locationGrid.getPosition(this.player.id);
+          const playerLocationName = this.session.world?.startingTown?.name || 'Millhaven';
+
           // Notify UI
           this._sendToUI('autonomous:action', {
             type: 'npc_chosen',
             npcId: chosenNPC.id,
-            npcName: chosenNPC.name
+            npcName: chosenNPC.name,
+            playerLocation: playerLocationName,
+            playerGridPosition: playerLocation ? { x: playerLocation.gridX, y: playerLocation.gridY } : null
           });
 
           this.pastConversations.push(chosenNPC.id);
@@ -840,19 +905,42 @@ export class GameBackend {
               await this._sleep(this.autonomousConfig.pauseBetweenActions);
             }
           } else {
+            // Get player's current location
+            const playerLocId = this.session.currentLocation || this.session.world?.startingTown?.id;
+            const playerLocName = this.session.getLocation(playerLocId)?.name || this.session.world?.startingTown?.name || 'Millhaven';
+
             // Execute action through ActionSystem
             const result = await this.actionSystem.executeAction(action, this.player, {
-              location: 'Millhaven',
+              location: playerLocName,
+              destination: action.destination,  // Pass destination for travel actions
               activeQuest: activeQuest
             });
 
             console.log(`[GameBackend] Action executed: ${action.type}, success: ${result.success}`);
 
+            // If this was a travel action with a valid destination, move the player
+            if (action.type === 'travel' && action.destination) {
+              const destinationLoc = this.session.getLocation(action.destination);
+              if (destinationLoc) {
+                console.log(`[GameBackend] Moving player from ${playerLocName} to ${destinationLoc.name}`);
+                this.locationGrid.teleportCharacter(this.player.id, action.destination, 10, 10);
+                this.session.visitLocation(action.destination, destinationLoc.name);
+              }
+            }
+
+            // Get player's updated location
+            const playerLocation = this.locationGrid.getPosition(this.player.id);
+            const updatedLocName = this.session.getLocation(this.session.currentLocation)?.name || playerLocName;
+
             // Send action result to UI
             this._sendToUI('autonomous:action-result', {
               type: action.type,
               result: result,
-              narration: result.narration
+              narration: result.narration,
+              playerLocation: updatedLocName,
+              playerGridPosition: playerLocation ? { x: playerLocation.gridX, y: playerLocation.gridY } : null,
+              originLocation: playerLocName,
+              destinationLocation: action.destination ? (this.session.getLocation(action.destination)?.name) : null
             });
 
             // Advance time based on action
@@ -873,19 +961,42 @@ export class GameBackend {
             }
           }
         } else {
+          // Get player's current location
+          const playerLocId = this.session.currentLocation || this.session.world?.startingTown?.id;
+          const playerLocName = this.session.getLocation(playerLocId)?.name || this.session.world?.startingTown?.name || 'Millhaven';
+
           // Execute other actions through ActionSystem
           const result = await this.actionSystem.executeAction(action, this.player, {
-            location: 'Millhaven',
+            location: playerLocName,
+            destination: action.destination,  // Pass destination for travel actions
             activeQuest: activeQuest
           });
 
           console.log(`[GameBackend] Action executed: ${action.type}, success: ${result.success}`);
 
+          // If this was a travel action with a valid destination, move the player
+          if (action.type === 'travel' && action.destination) {
+            const destinationLoc = this.session.getLocation(action.destination);
+            if (destinationLoc) {
+              console.log(`[GameBackend] Moving player from ${playerLocName} to ${destinationLoc.name}`);
+              this.locationGrid.teleportCharacter(this.player.id, action.destination, 10, 10);
+              this.session.visitLocation(action.destination, destinationLoc.name);
+            }
+          }
+
+          // Get player's updated location
+          const playerLocation = this.locationGrid.getPosition(this.player.id);
+          const updatedLocName = this.session.getLocation(this.session.currentLocation)?.name || playerLocName;
+
           // Send action result to UI
           this._sendToUI('autonomous:action-result', {
             type: action.type,
             result: result,
-            narration: result.narration
+            narration: result.narration,
+            playerLocation: updatedLocName,
+            playerGridPosition: playerLocation ? { x: playerLocation.gridX, y: playerLocation.gridY } : null,
+            originLocation: playerLocName,
+            destinationLocation: action.destination ? (this.session.getLocation(action.destination)?.name) : null
           });
 
           // Advance time based on action
@@ -1322,6 +1433,59 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
     }
 
     console.log('[GameBackend] World knowledge added to NPCs');
+  }
+
+  /**
+   * Initialize grid positions for player and NPCs
+   * @private
+   */
+  _initializeGridPositions(world) {
+    if (!this.player || !this.npcs) return;
+
+    const startingTown = world.startingTown;
+    if (!startingTown) return;
+
+    console.log('[GameBackend] Setting up grid positions for all characters...');
+
+    // Register player at center of town
+    const playerPosition = new GridPositionComponent(
+      this.player.id,
+      startingTown.id,
+      10, // center-ish
+      10
+    );
+    this.locationGrid.addCharacter(this.player.id, playerPosition);
+    this.npcScheduleSystem.registerNPC(this.player.id, this.player);
+    console.log(`  - Player positioned at ${startingTown.name} (10, 10)`);
+
+    // Register NPCs with their grid positions from world generation
+    this.npcs.forEach(npc => {
+      if (!npc) return;
+
+      // Use NPC's grid position from world generation, or default
+      const gridPos = npc.gridPosition || { x: 10, y: 10, locationHint: 'In town' };
+      const npcPosition = new GridPositionComponent(
+        npc.id,
+        startingTown.id,
+        gridPos.x,
+        gridPos.y
+      );
+
+      this.locationGrid.addCharacter(npc.id, npcPosition);
+      this.npcScheduleSystem.registerNPC(npc.id, npc);
+
+      console.log(`  - NPC "${npc.name}" positioned at ${gridPos.locationHint} (${gridPos.x}, ${gridPos.y})`);
+    });
+
+    // Update schedules based on current time
+    const currentTime = this.session.getTimeOfDay();
+    console.log(`[GameBackend] Initial time of day: ${currentTime}`);
+
+    this.npcScheduleSystem.getAllNPCs().forEach(npcInfo => {
+      this.npcScheduleSystem.updateSchedule(npcInfo.npcId, currentTime);
+    });
+
+    console.log('[GameBackend] Grid positions initialized');
   }
 
   /**

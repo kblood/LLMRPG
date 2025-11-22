@@ -236,6 +236,60 @@ Opening Narration:`;
     }
 
     /**
+     * Generate closing narration for the game's victory ending
+     */
+    async generateVictoryNarration(player, mainQuest, world, stats = {}) {
+        this.logger.info('Generating victory narration for game completion');
+
+        const prompt = `You are ${this.personality.name}, the narrator of an epic RPG adventure. The grand journey has reached its conclusion.
+
+The protagonist: ${player.name}, ${player.backstory}
+
+The completed quest: ${mainQuest.title}
+Quest objective: ${mainQuest.objectives?.map(o => o.description).join(', ') || 'Destiny fulfilled'}
+
+Journey highlights:
+- Started at: ${world?.startingTown?.name || 'Millhaven'}
+- Visited locations: ${stats.locationsVisited || 'Many distant lands'}
+- NPCs encountered: ${stats.npcsEncountered || 'Many souls'}
+- Time elapsed: ${stats.daysElapsed ? stats.daysElapsed + ' days' : 'A passage of time'}
+
+Generate an epic, emotional closing narration (4-6 paragraphs) that:
+1. Reflects on ${player.name}'s journey from beginning to end
+2. Describes the completion of their quest and the final victory
+3. Shows how the protagonist has grown and changed through their experiences
+4. Hints at the world's gratitude or the impact of their deeds
+5. Provides a sense of closure while leaving room for reflection
+6. Celebrates the protagonist's legacy and the tale that will be told
+
+Make it grand, meaningful, and emotionally resonant. This is the epic conclusion to an unforgettable adventure.
+
+Victory Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 600,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            this.logger.info('Generated victory narration');
+
+            // Store in narrative memory
+            this.narrativeMemory.push({
+                text: narration,
+                context: { type: 'victory', player: player.name, quest: mainQuest.title },
+                timestamp: Date.now()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate victory narration:', error);
+            return this._getFallbackVictoryNarration(player, mainQuest);
+        }
+    }
+
+    /**
      * Generate the world map with locations
      */
     async generateWorld(player, options = {}) {
@@ -914,6 +968,20 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
 As the settlement comes into view, nestled in rolling hills like a secret kept from the wider world, ${player.name} pauses. Smoke rises from chimneys, and the warm glow of lanterns begins to flicker to life. It looks peaceful, almost too peaceful, but beneath that tranquility, there's a tension in the air—a sense that this place holds more than it shows.
 
 ${player.name} adjusts their pack and continues forward, each step carrying them deeper into whatever fate awaits. The village gates stand open, welcoming yet somehow watchful. This is where the journey truly begins.`;
+    }
+
+    _getFallbackVictoryNarration(player, mainQuest) {
+        return `And so the tale draws to its conclusion. ${player.name}, who arrived in Millhaven as but a whisper on the wind, leaves behind a legacy written in the hearts of those they met and the world forever changed by their deeds.
+
+The quest has been completed. The objective that once seemed impossible, that drew them across deserts and mountains, through dark forests and ancient ruins, has at last been achieved. ${mainQuest.title} is no more merely a distant dream—it is history, accomplished fact, woven into the very fabric of this world.
+
+Through trials both expected and surprising, through encounters that tested not just their strength but their character, ${player.name} has grown beyond measure. They came as a seeker. They leave as a legend.
+
+The road that brought them here was long, but the roads they've traveled since have been longer still—roads through wonder and danger, through connection and discovery. Every NPC they spoke with, every location they visited, every choice they made has shaped not just their own story, but the story of the world itself.
+
+In taverns and town squares, around hearths and by roadsides, the tale of ${player.name} and their remarkable journey will be told and retold. Bards will sing of their courage. Scholars will record their deeds. And the world, forever touched by their presence, will remember.
+
+The adventure does not truly end—not while memory remains. But this chapter, this great chapter in the epic of ${player.name}, draws to a close. The chronicler sets down their quill, knowing that what has been written here will endure long after the final words fade from the page.`;
     }
 
     _getFallbackWorld(player) {

@@ -85,9 +85,12 @@ export class WorldGenerator {
       );
       npcs.forEach(npc => {
         world.npcs.set(npc.id, npc);
-        world.startingTown.addCharacter(npc.id);
       });
-      console.log(`   ✓ ${npcs.length} souls now dwell in ${world.startingTown.name}`);
+
+      // Step 3b: Distribute NPCs across locations
+      console.log('📍 Scattering souls across the world...');
+      this.distributeNPCsAcrossLocations(npcs, world);
+      console.log(`   ✓ ${npcs.length} souls distributed across ${world.startingTown.name} and beyond`);
       console.log('');
 
       // Step 4: Generate NPC relationships
@@ -250,11 +253,18 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
   }
 
   /**
-   * Generate NPCs with knowledge system
+   * Generate NPCs with knowledge system and grid positioning
    */
   async generateStartingNPCs(town, locations, count = 7) {
     // Use fallback for now - LLM JSON generation needs improvement
     const npcData = this.getFallbackNPCs().slice(0, count);
+
+    // Define default NPC locations in town (grid positions)
+    const npcLocations = [
+      { x: 10, y: 10, locationHint: 'Near the Mill' },      // Gareth
+      { x: 14, y: 8, locationHint: 'Market area' },         // Lyssa
+      { x: 7, y: 12, locationHint: 'By the Bridge' }        // Old Tam
+    ];
 
     return npcData.map((data, index) => {
       const npc = new Character(`npc_${index}`, data.name, {
@@ -270,6 +280,14 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
       npc.activity = 'idle';
       npc.availability = 'available';
 
+      // Add grid positioning within town
+      const locData = npcLocations[index] || { x: 10 + Math.random() * 10, y: 10 + Math.random() * 10, locationHint: 'In town' };
+      npc.gridPosition = {
+        x: Math.floor(locData.x),
+        y: Math.floor(locData.y),
+        locationHint: locData.locationHint
+      };
+
       // Add knowledge system
       npc.knowledge = {
         specialties: data.knowledge.specialties || [],
@@ -280,6 +298,13 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
 
       // Store pending relationships for later processing
       npc.pendingRelationships = data.relationships || [];
+
+      // Add schedule information (for future NPC movement system)
+      npc.schedule = data.schedule || [
+        { timeOfDay: 'morning', location: town.id, activity: 'work' },
+        { timeOfDay: 'afternoon', location: town.id, activity: 'work' },
+        { timeOfDay: 'evening', location: town.id, activity: 'rest' }
+      ];
 
       return npc;
     });
@@ -310,32 +335,78 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
   }
 
   /**
-   * Generate main quest
+   * Distribute NPCs across different locations
+   */
+  distributeNPCsAcrossLocations(npcs, world) {
+    if (!npcs || npcs.length === 0) return;
+
+    // Primary location for most NPCs
+    world.startingTown.addCharacter(npcs[0].id);
+
+    // Distribute remaining NPCs to sparse locations or keep in starting town
+    const sparseLocationIds = Array.from(world.locations.values())
+      .filter(loc => loc.id !== world.startingTown.id)
+      .map(loc => loc.id);
+
+    for (let i = 1; i < npcs.length; i++) {
+      const npc = npcs[i];
+
+      // 70% chance to stay in starting town, 30% distributed
+      if (sparseLocationIds.length > 0 && Math.random() < 0.3) {
+        // Pick a random sparse location
+        const randomLocId = sparseLocationIds[Math.floor(Math.random() * sparseLocationIds.length)];
+        const location = world.locations.get(randomLocId);
+        if (location) {
+          location.addCharacter(npc.id);
+          npc.currentLocation = randomLocId;
+          console.log(`    - ${npc.name} assigned to ${location.name}`);
+        } else {
+          world.startingTown.addCharacter(npc.id);
+        }
+      } else {
+        // Keep in starting town
+        world.startingTown.addCharacter(npc.id);
+      }
+    }
+  }
+
+  /**
+   * Generate main quest - Chronicler-driven narrative
    */
   async generateMainQuest(context) {
-    // Use fallback for now
+    // Generate a main quest from the town's situation
+    // This quest is the REASON the player arrives at the town
+
+    const townSituation = context.town.customProperties?.situation || "Trouble brews";
+    const townIndustry = context.town.customProperties?.industry || "unknown trade";
+
+    // The Lost Chronicle quest as default, but could be enhanced with LLM later
     const questData = {
-      title: "The Shadow Trade",
-      description: "Uncover the conspiracy behind the grain thefts plaguing " + context.town.name,
-      why_it_matters: "The town will face starvation if the thefts continue",
-      questGiver: "Gareth",
+      title: "The Lost Chronicle",
+      description: `A mysterious ancient artifact has gone missing in ${context.town.name}, and rumors point to a long-forgotten tragedy connected to it. Uncover the truth behind this lost chronicle and restore balance to the village.`,
+      why_it_matters: `The town's prosperity depends on understanding what was lost and why`,
+      questGiver: "Chronicler",  // Given by the Chronicler narrative, discovered through NPCs
+      foundVia: "town_situation",  // How player learns about this quest
       initialObjectives: [
-        "Talk to Gareth about the missing grain",
-        "Investigate suspicious activity around the mill",
-        "Question townsfolk who might have information"
+        `Learn about the missing artifact from townsfolk in ${context.town.name}`,
+        "Investigate the old locations mentioned in rumors",
+        "Uncover the connection to the town's history"
       ],
       longTermArc: [
-        "Discover the thefts are organized",
-        "Trace the stolen grain to its destination",
-        "Uncover the mastermind behind the conspiracy",
-        "Bring the criminals to justice",
-        "Save " + context.town.name + " from collapse"
+        "Discover the artifact's true significance",
+        "Learn of the tragedy that caused its disappearance",
+        "Find the artifact or learn its final fate",
+        "Help restore what was lost",
+        `Bring peace and understanding to ${context.town.name}`
       ],
       guidance: {
         nextLocation: context.town.name,
-        nextNPC: "Gareth",
-        hint: "Start by talking to Gareth the Master Miller"
-      }
+        nextNPC: context.npcs[0]?.name || "Gareth",
+        hint: "Listen to the townspeople - they hold the key to this mystery"
+      },
+      // Frame information for narrative
+      discoveredAtFrame: 1,
+      narrative: `The Chronicler has guided you to ${context.town.name} for a reason. There is something lost here—something important that holds the key to a greater mystery.`
     };
 
     const questId = this.questManager.createQuest({
@@ -343,19 +414,22 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
       description: questData.description,
       type: 'main',
       giver: questData.questGiver,
+      foundVia: questData.foundVia,
       objectives: questData.initialObjectives.map((desc, i) => ({
         id: `obj_${i}`,
         description: desc,
         completed: false
       })),
       rewards: {
-        experience: 500,
-        reputation: 50,
+        experience: 1000,
+        reputation: 100,
         narrative: questData.why_it_matters
       },
       state: 'active',
       guidance: questData.guidance,
-      arc: questData.longTermArc
+      arc: questData.longTermArc,
+      discoveredAtFrame: questData.discoveredAtFrame,
+      narrativeIntroduction: questData.narrative
     });
 
     return this.questManager.getQuest(questId);
@@ -536,7 +610,12 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
           specialties: ["Milling", "Grain trade", "Old Granite Quarry"],
           rumors: ["Thefts are organized", "Rival village involved"]
         },
-        relationships: []
+        relationships: [],
+        schedule: [
+          { timeOfDay: 'morning', location: 'starting_town', activity: 'work at mill', gridX: 10, gridY: 10 },
+          { timeOfDay: 'afternoon', location: 'starting_town', activity: 'work at mill', gridX: 10, gridY: 10 },
+          { timeOfDay: 'evening', location: 'starting_town', activity: 'drink at inn', gridX: 8, gridY: 5 }
+        ]
       },
       {
         name: "Lyssa",
@@ -551,6 +630,11 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
         },
         relationships: [
           { npc: "Gareth", level: -20, reason: "business tension" }
+        ],
+        schedule: [
+          { timeOfDay: 'morning', location: 'starting_town', activity: 'haggle at market', gridX: 14, gridY: 8 },
+          { timeOfDay: 'afternoon', location: 'starting_town', activity: 'count coins at market', gridX: 14, gridY: 8 },
+          { timeOfDay: 'evening', location: 'starting_town', activity: 'dinner', gridX: 12, gridY: 6 }
         ]
       },
       {
@@ -566,6 +650,11 @@ Create a similar town with different details. Return ONLY the JSON object.`.trim
         },
         relationships: [
           { npc: "Gareth", level: 40, reason: "old friends" }
+        ],
+        schedule: [
+          { timeOfDay: 'morning', location: 'starting_town', activity: 'maintain bridge', gridX: 7, gridY: 12 },
+          { timeOfDay: 'afternoon', location: 'starting_town', activity: 'watch travelers', gridX: 7, gridY: 12 },
+          { timeOfDay: 'evening', location: 'starting_town', activity: 'rest at home', gridX: 6, gridY: 14 }
         ]
       }
     ];

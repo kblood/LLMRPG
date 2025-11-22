@@ -55,6 +55,11 @@ export class GameSession {
     this.paused = false;
     this.autoDetectQuests = options.autoDetectQuests !== false;
 
+    // Location Discovery System
+    this.discoveredLocations = new Set();   // Locations player knows about
+    this.visitedLocations = new Set();      // Locations player has been to
+    this.locationDatabase = new Map();      // Map<locationId, locationData>
+
     // Time & Environment
     this.day = 1;
     this.season = 'autumn';
@@ -400,8 +405,140 @@ export class GameSession {
       characters: Array.from(this.characters.values()).map(c => c.toJSON()),
       seedManager: this.seedManager.toJSON(),
       questManager: this.questManager.toJSON(),
-      startTime: this.startTime
+      startTime: this.startTime,
+      discoveredLocations: Array.from(this.discoveredLocations),
+      visitedLocations: Array.from(this.visitedLocations)
     };
+  }
+
+  // ===== LOCATION DISCOVERY & MANAGEMENT =====
+
+  /**
+   * Initialize location database from world
+   * @param {Object} world - World object from WorldGenerator
+   */
+  initializeLocations(world) {
+    if (!world || !world.locations) return;
+
+    // Add all locations to database
+    for (const [locationId, locationData] of world.locations) {
+      this.locationDatabase.set(locationId, {
+        id: locationId,
+        name: locationData.name,
+        description: locationData.description,
+        type: locationData.type,
+        coordinates: locationData.coordinates,
+        safe: locationData.environment?.safe || false,
+        indoor: locationData.environment?.indoor || false,
+        dangerLevel: this._calculateDangerLevel(locationData)
+      });
+    }
+
+    // Start with starting town as discovered
+    if (world.startingTown) {
+      this.discoverLocation(world.startingTown.id, world.startingTown.name);
+      this.visitLocation(world.startingTown.id, world.startingTown.name);
+    }
+
+    console.log(`[GameSession] Initialized ${this.locationDatabase.size} locations`);
+  }
+
+  /**
+   * Discover a location (learn it exists)
+   * @param {string} locationId - Location ID
+   * @param {string} locationName - Location name for display
+   */
+  discoverLocation(locationId, locationName) {
+    if (!this.discoveredLocations.has(locationId)) {
+      this.discoveredLocations.add(locationId);
+      console.log(`[GameSession] Discovered location: ${locationName}`);
+    }
+  }
+
+  /**
+   * Visit a location (player travels there)
+   * @param {string} locationId - Location ID
+   * @param {string} locationName - Location name for display
+   */
+  visitLocation(locationId, locationName) {
+    this.discoveredLocations.add(locationId);
+    this.visitedLocations.add(locationId);
+    this.currentLocation = locationId;
+    console.log(`[GameSession] Visited location: ${locationName}`);
+  }
+
+  /**
+   * Get all discovered locations
+   * @returns {Array} Array of location data
+   */
+  getDiscoveredLocations() {
+    const discovered = [];
+    for (const locationId of this.discoveredLocations) {
+      const locData = this.locationDatabase.get(locationId);
+      if (locData) {
+        discovered.push(locData);
+      }
+    }
+    return discovered;
+  }
+
+  /**
+   * Get location by ID
+   * @param {string} locationId - Location ID
+   * @returns {Object|null} Location data or null
+   */
+  getLocation(locationId) {
+    return this.locationDatabase.get(locationId) || null;
+  }
+
+  /**
+   * Resolve location name to location ID
+   * @param {string} locationName - Location name (partial match OK)
+   * @returns {string|null} Location ID or null if not found
+   */
+  resolveLocationByName(locationName) {
+    if (!locationName) return null;
+
+    const lowerName = locationName.toLowerCase();
+
+    // First try exact match in discovered locations
+    for (const locId of this.discoveredLocations) {
+      const loc = this.locationDatabase.get(locId);
+      if (loc && loc.name.toLowerCase() === lowerName) {
+        return locId;
+      }
+    }
+
+    // Then try partial match in discovered locations
+    for (const locId of this.discoveredLocations) {
+      const loc = this.locationDatabase.get(locId);
+      if (loc && loc.name.toLowerCase().includes(lowerName)) {
+        return locId;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculate danger level for a location
+   * @private
+   */
+  _calculateDangerLevel(location) {
+    if (location.environment?.safe) return 'safe';
+    if (location.tags?.includes('dungeon')) return 'high';
+    if (location.tags?.includes('ruins')) return 'medium';
+    if (location.tags?.includes('wilderness')) return 'medium';
+    return 'low';
+  }
+
+  /**
+   * Check if location is accessible
+   * @param {string} locationId - Location ID
+   * @returns {boolean}
+   */
+  isLocationAccessible(locationId) {
+    return this.discoveredLocations.has(locationId);
   }
 }
 

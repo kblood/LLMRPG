@@ -182,12 +182,27 @@ Description: ${activeQuests[0].description}
 ${activeQuests[0].objectives ? `Current Objectives: ${activeQuests[0].objectives.map(o => o.description).join(', ')}` : ''}
 ` : 'You have no active quests yet.';
 
-    // Build world context
+    // Build world context with discovered locations
+    let discoveredLocations = 'Millhaven';
+    let availableDestinations = '';
+
+    if (this.session.discoveredLocations && this.session.discoveredLocations.size > 0) {
+      const discovered = this.session.getDiscoveredLocations();
+      discoveredLocations = discovered.map(loc => loc.name).join(', ') || 'Millhaven';
+
+      // Show available travel destinations
+      const travelableLocations = discovered.filter(loc => loc.id !== this.session.currentLocation);
+      if (travelableLocations.length > 0) {
+        availableDestinations = `
+Possible Destinations (Discovered Locations):
+${travelableLocations.slice(0, 5).map(loc => `- ${loc.name} (${loc.type})`).join('\n')}
+`;
+      }
+    }
+
     const worldContext = world ? `
-Known Locations:
-- Cities: ${world.cities?.map(c => c.name).join(', ') || 'Millhaven only'}
-- Dungeons: ${world.dungeons?.slice(0, 3).map(d => d.name).join(', ') || 'none known'}
-- Landmarks: ${world.landmarks?.slice(0, 2).map(l => l.name).join(', ') || 'none known'}
+Known Locations: ${discoveredLocations}
+${availableDestinations}
 ` : '';
 
     // Time context
@@ -207,7 +222,7 @@ ${protagonist.personality.toDetailedDescription()}
 
 Current Situation:
 - Time: ${gameTime} (${timeOfDay})
-- Location: Millhaven
+- Location: ${this.session.currentLocation ? (this.session.getLocation(this.session.currentLocation)?.name || 'Millhaven') : 'Millhaven'}
 - Recent actions: ${recentActionsText}
 
 ${questContext}
@@ -265,7 +280,7 @@ Your decision:`;
   }
 
   /**
-   * Parse AI decision response
+   * Parse AI decision response and extract destination for travel actions
    */
   _parseActionDecision(response) {
     let text = response.trim();
@@ -277,11 +292,19 @@ Your decision:`;
       const actionType = actionMatch[1].toLowerCase();
       const reason = text.substring(actionMatch[0].length).trim();
 
-      return {
+      // For TRAVEL actions, try to extract destination from the reason
+      const action = {
         type: actionType,
         reason: reason || 'No specific reason given',
         timestamp: Date.now()
       };
+
+      // Extract destination if this is a travel action
+      if (actionType === ActionType.TRAVEL) {
+        action.destination = this._extractTravelDestination(reason);
+      }
+
+      return action;
     }
 
     // Fallback: try to detect action type in text
@@ -302,7 +325,9 @@ Your decision:`;
       return { type: ActionType.TRADE, reason: text, timestamp: Date.now() };
     }
     if (lowerText.includes('travel') || lowerText.includes('journey') || lowerText.includes('go to')) {
-      return { type: ActionType.TRAVEL, reason: text, timestamp: Date.now() };
+      const action = { type: ActionType.TRAVEL, reason: text, timestamp: Date.now() };
+      action.destination = this._extractTravelDestination(text);
+      return action;
     }
 
     // Default to investigate
@@ -311,6 +336,43 @@ Your decision:`;
       reason: 'Exploring the surroundings',
       timestamp: Date.now()
     };
+  }
+
+  /**
+   * Extract travel destination from travel action reason text
+   * @private
+   */
+  _extractTravelDestination(text) {
+    if (!text) return null;
+
+    // Try to match location names from discovered locations
+    const discovered = this.session.getDiscoveredLocations();
+    for (const location of discovered) {
+      if (text.toLowerCase().includes(location.name.toLowerCase())) {
+        return location.id;
+      }
+    }
+
+    // Try to extract location name from common patterns
+    const patterns = [
+      /to\s+(?:the\s+)?([A-Za-z\s]+?)(?:\s+to|\s+and|\s+so|$)/i,
+      /journey\s+to\s+(?:the\s+)?([A-Za-z\s]+?)(?:\s+to|\s+and|\s+so|$)/i,
+      /head\s+(?:to|out)\s+(?:the\s+)?([A-Za-z\s]+?)(?:\s+to|\s+and|\s+so|$)/i,
+      /investigate\s+(?:the\s+)?([A-Za-z\s]+?)(?:\s+to|\s+and|\s+so|$)/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) {
+        const locationName = match[1].trim();
+        const resolvedId = this.session.resolveLocationByName(locationName);
+        if (resolvedId) {
+          return resolvedId;
+        }
+      }
+    }
+
+    return null;
   }
 
   /**

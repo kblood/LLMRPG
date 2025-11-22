@@ -119,6 +119,11 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('autonomous:chronicler');
   },
 
+  onVictory: (callback) => {
+    ipcRenderer.on('game:victory', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('game:victory');
+  },
+
   // Replay event listeners
   onReplaySaved: (callback) => {
     ipcRenderer.on('replay:saved', (event, data) => callback(data));
