@@ -556,6 +556,7 @@ class MainMenu {
 
     // Start the game with the world config
     try {
+      console.log('[MainMenu] Starting game with world config...');
       const result = await this.gameAPI.init({
         seed: Date.now(),
         playerName: this.generatedWorld.playerName,
@@ -563,9 +564,18 @@ class MainMenu {
         theme: this.config.selectedTheme,
         worldConfig: this.generatedWorld
       });
-      console.log('[MainMenu] Game initialized with world config:', result);
+      console.log('[MainMenu] Backend initialized with world config:', result);
+
+      // Initialize the UI with the configured settings
+      // Pass true to skip backend init since we already did it above
+      if (typeof app !== 'undefined' && app) {
+        console.log('[MainMenu] Initializing app UI...');
+        await app.init(true);
+      } else {
+        console.error('[MainMenu] App not found - UI initialization failed');
+      }
     } catch (error) {
-      console.error('[MainMenu] Failed to initialize game:', error);
+      console.error('[MainMenu] Failed to start game:', error);
       this.showError(`Failed to start game: ${error.message}`);
     }
   }

@@ -12,43 +12,54 @@ class OllamaRPGApp {
     this.playerStats = null;
   }
 
-  async init() {
-    console.log('[App] Initializing OllamaRPG');
+  async init(skipBackendInit = false) {
+    console.log('[App] Initializing OllamaRPG', skipBackendInit ? '(backend already initialized)' : '');
+
+    // Skip if already initialized
+    if (this.initialized) {
+      console.log('[App] Already initialized, skipping');
+      return;
+    }
 
     // Setup event listeners
     this.setupEventListeners();
     this.setupAutonomousListeners();
 
-    // Check Ollama
-    this.showLoadingScreen('Checking Ollama service...');
-    const ollamaReady = await this.checkOllama();
+    // Check Ollama unless backend was already initialized by mainMenu
+    if (!skipBackendInit) {
+      this.showLoadingScreen('Checking Ollama service...');
+      const ollamaReady = await this.checkOllama();
 
-    if (!ollamaReady) {
-      this.showError('Ollama service is not available. Please start Ollama and restart the app.');
-      return;
-    }
-
-    // Initialize game
-    this.showLoadingScreen('Initializing game world...');
-
-    try {
-      const result = await this.gameAPI.init({
-        seed: Date.now(),
-        playerName: 'Kael' // Protagonist name
-      });
-
-      if (result.success) {
-        console.log('[App] Game initialized:', result.data);
-        this.initialized = true;
-        await this.loadGameData();
-        this.showGameScreen();
-      } else {
-        this.showError(`Failed to initialize: ${result.error}`);
+      if (!ollamaReady) {
+        this.showError('Ollama service is not available. Please start Ollama and restart the app.');
+        return;
       }
-    } catch (error) {
-      console.error('[App] Initialization failed:', error);
-      this.showError(`Error: ${error.message}`);
+
+      // Initialize game backend
+      this.showLoadingScreen('Initializing game world...');
+
+      try {
+        const result = await this.gameAPI.init({
+          seed: Date.now(),
+          playerName: 'Kael' // Protagonist name
+        });
+
+        if (!result.success) {
+          this.showError(`Failed to initialize: ${result.error}`);
+          return;
+        }
+        console.log('[App] Game backend initialized:', result.data);
+      } catch (error) {
+        console.error('[App] Backend initialization failed:', error);
+        this.showError(`Error: ${error.message}`);
+        return;
+      }
     }
+
+    // Load and display game data
+    this.initialized = true;
+    await this.loadGameData();
+    this.showGameScreen();
   }
 
   async checkOllama() {
@@ -1508,10 +1519,16 @@ class OllamaRPGApp {
   }
 }
 
+// Global app instance for use by mainMenu
+let app;
+
 // Initialize app when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
-  const app = new OllamaRPGApp();
-  app.init();
+  app = new OllamaRPGApp();
+
+  // Don't auto-initialize - let mainMenu control the flow
+  // The mainMenu will call app.init() with appropriate parameters
+  console.log('[App] Waiting for main menu to start game...');
 
   // Replay viewer button
   document.getElementById('view-replays-btn').addEventListener('click', () => {
