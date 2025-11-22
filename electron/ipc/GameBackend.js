@@ -1010,10 +1010,15 @@ export class GameBackend {
         // Advance time (thinking and speaking)
         this.session.tick(1 + Math.floor(Math.random() * 2)); // 1-3 minutes per turn
 
-        // Check for exit intent
-        const exitPhrases = ['goodbye', 'farewell', 'see you', 'be going', 'must go', 'should leave'];
-        const wantsToExit = exitPhrases.some(phrase =>
-          protagonistResponse.toLowerCase().includes(phrase)
+        // Check for exit intent (look for more specific phrases to avoid false positives)
+        const exitPhrases = [
+          /\bgoodbye\b/i,
+          /\bfarewell\b/i,
+          /\bi (have to|must|need to|should) (leave|go|head out|depart)\b/i,
+          /\b(see you|talk to you) (later|soon|later)\b/i
+        ];
+        const wantsToExit = exitPhrases.some(pattern =>
+          pattern.test(protagonistResponse)
         );
 
         // Log protagonist dialogue
@@ -1064,9 +1069,9 @@ export class GameBackend {
           text: response.text
         });
 
-        // Check if NPC wants to end
+        // Check if NPC wants to end (use same pattern matching as protagonist)
         const npcExitIntent = response && response.text &&
-          exitPhrases.some(phrase => response.text.toLowerCase().includes(phrase));
+          exitPhrases.some(pattern => pattern.test(response.text));
 
         if (npcExitIntent) {
           console.log(`[GameBackend] ${npc.name} ends conversation`);
