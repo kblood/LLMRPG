@@ -420,6 +420,7 @@ class OllamaRPGApp {
     this.gameAPI.onAutonomousActionDecision?.((data) => {
       console.log('[App] Action decision:', JSON.stringify(data));
       this.setStatus(`Deciding: ${data.reason}`);
+      this.addEventToLog(`🤔 Deciding: ${data.reason}`, 'action-decision');
     });
 
     // Action chosen
@@ -428,6 +429,7 @@ class OllamaRPGApp {
       if (data.type === 'npc_chosen') {
         this.setStatus(`${data.npcName} was chosen for conversation`);
         document.getElementById('mode-status').textContent = `Talking to ${data.npcName}`;
+        this.addEventToLog(`💬 Starting conversation with ${data.npcName}`, 'action');
       }
     });
 
@@ -437,6 +439,7 @@ class OllamaRPGApp {
       const narrative = data.narrative || data.description || '';
       if (narrative) {
         document.getElementById('gm-narration').textContent = narrative;
+        this.addEventToLog(`📖 ${narrative}`, 'action-result');
       }
       this.setStatus(`Action completed: ${data.action || 'Unknown'}`);
     });
@@ -445,7 +448,9 @@ class OllamaRPGApp {
     this.gameAPI.onAutonomousCombatEncounter?.((data) => {
       console.log('[App] Combat encounter:', JSON.stringify(data));
       const enemies = data.enemies?.map(e => e.name).join(', ') || 'Unknown enemies';
-      document.getElementById('gm-narration').textContent = `⚔️ Combat! Encountered ${enemies}`;
+      const combatMsg = `⚔️ Combat! Encountered ${enemies}`;
+      document.getElementById('gm-narration').textContent = combatMsg;
+      this.addEventToLog(combatMsg, 'combat-encounter');
       this.setStatus(`Combat started: ${enemies}`);
     });
 
@@ -455,9 +460,12 @@ class OllamaRPGApp {
       const outcome = data.outcome || 'Unknown';
       const narrative = data.narrative || `Combat ended in ${outcome}!`;
       document.getElementById('gm-narration').textContent = `${narrative}`;
+      this.addEventToLog(`⚔️ ${narrative}`, 'combat-result');
 
       if (data.xpGained) {
-        this.setStatus(`Combat victory! Gained ${data.xpGained} XP${data.goldGained ? ` and ${data.goldGained} gold` : ''}`);
+        const rewardMsg = `Combat victory! Gained ${data.xpGained} XP${data.goldGained ? ` and ${data.goldGained} gold` : ''}`;
+        this.addEventToLog(`💰 ${rewardMsg}`, 'reward');
+        this.setStatus(rewardMsg);
       } else {
         this.setStatus(`Combat defeated. Lost ${data.goldLost || 0} gold.`);
       }
@@ -477,16 +485,20 @@ class OllamaRPGApp {
       this.addMessageToHistory(data);
     });
 
-    // Conversation ended
+    // Conversation ended - DON'T CLEAR the dialogue history, keep it as event log
     this.gameAPI.onAutonomousConversationEnd((data) => {
       console.log('[App] Conversation ended with', data.npcName, '-', data.turns, 'turns');
       this.setStatus(`Conversation with ${data.npcName} ended (${data.turns} turns)`);
 
-      // Clear dialogue history after a delay
-      setTimeout(() => {
-        document.getElementById('dialogue-history').innerHTML = '';
-        document.getElementById('gm-narration').textContent = 'Waiting for next conversation...';
-      }, 3000);
+      // Add a separator to the event log showing conversation end
+      const dialogueHistory = document.getElementById('dialogue-history');
+      const separator = document.createElement('div');
+      separator.className = 'event-separator';
+      separator.textContent = `─── Conversation ended (${data.turns} turns) ───`;
+      dialogueHistory.appendChild(separator);
+      dialogueHistory.scrollTop = dialogueHistory.scrollHeight;
+
+      // Don't clear - keep accumulating events
     });
 
     // Error
@@ -767,6 +779,19 @@ class OllamaRPGApp {
     messageEl.appendChild(speakerEl);
     messageEl.appendChild(textEl);
     history.appendChild(messageEl);
+
+    // Auto-scroll to bottom
+    history.scrollTop = history.scrollHeight;
+  }
+
+  addEventToLog(text, eventType = 'event') {
+    const history = document.getElementById('dialogue-history');
+
+    const eventEl = document.createElement('div');
+    eventEl.className = `event-log-entry event-${eventType}`;
+    eventEl.innerHTML = text;
+
+    history.appendChild(eventEl);
 
     // Auto-scroll to bottom
     history.scrollTop = history.scrollHeight;
@@ -1150,7 +1175,9 @@ class OllamaRPGApp {
     } else if (event.type === 'level_up') {
       contentEl.innerHTML = `<strong>Level Up!</strong> Now level ${data.newLevel}`;
     } else if (event.type === 'quest_started') {
-      contentEl.innerHTML = `<strong>Quest:</strong> ${data.questTitle || 'New quest accepted'}`;
+      contentEl.innerHTML = `<strong>⚡ Quest Started:</strong> ${data.title || data.questTitle || 'New quest accepted'}<br/><em>${data.description || ''}</em>`;
+    } else if (event.type === 'quest_completed') {
+      contentEl.innerHTML = `<strong>⚡ Quest Completed:</strong> ${data.title || 'Quest complete'}`;
     } else if (event.type === 'inventory_changed') {
       let message = '';
       if (data.changeType === 'gold_gained') {

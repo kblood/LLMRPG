@@ -1210,6 +1210,65 @@ body {
   font-style: italic;
 }
 
+/* Event Log Entries - Autonomous Mode Event Display */
+
+.event-log-entry {
+  padding: 0.75rem 1rem;
+  margin: 0.5rem 0;
+  border-radius: 4px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.event-action-decision {
+  background: rgba(100, 150, 255, 0.1);
+  border-left: 4px solid #6496ff;
+  color: #7fa3ff;
+}
+
+.event-action {
+  background: rgba(100, 200, 150, 0.1);
+  border-left: 4px solid #64c896;
+  color: #7fd9a8;
+}
+
+.event-action-result {
+  background: rgba(200, 150, 100, 0.1);
+  border-left: 4px solid #c89664;
+  color: #e8b87a;
+}
+
+.event-combat-encounter {
+  background: rgba(220, 80, 80, 0.1);
+  border-left: 4px solid #dc5050;
+  color: #ff7070;
+  font-weight: 500;
+}
+
+.event-combat-result {
+  background: rgba(220, 150, 80, 0.1);
+  border-left: 4px solid #dc9650;
+  color: #ffb070;
+  font-weight: 500;
+}
+
+.event-reward {
+  background: rgba(200, 200, 100, 0.1);
+  border-left: 4px solid #c8c864;
+  color: #e8e87a;
+  font-weight: 500;
+}
+
+.event-separator {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 1rem 0 0.5rem 0;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
 @media (max-width: 768px) {
   .sidebar {
     width: 250px;
