@@ -302,18 +302,53 @@ This architecture allows for:
 
 ---
 
+## Continuous Event Log Design
+
+**Key Feature**: The event log is **persistent and continuous** throughout autonomous gameplay.
+
+- Events are **never cleared** between conversations
+- Each new conversation adds a "💬 Starting conversation with {NPC}" event to the log
+- All previous actions, combats, and decisions remain visible
+- Players can scroll back to see the entire game history
+- The log grows chronologically as the game progresses
+
+**Event Order Example**:
+```
+🤔 Deciding: Investigate the tavern
+💬 Starting conversation with Mara
+[dialogue messages...]
+─── Conversation ended (3 turns) ───
+🤔 Deciding: Search the area
+📖 You find evidence of recent activity
+🤔 Deciding: Travel north
+⚔️ Combat! Encountered Bandit Captain, Bandit
+⚔️ After a fierce battle, you stand victorious!
+💰 Combat victory! Gained 100 XP and 50 gold
+💬 Starting conversation with Bandit Leader
+[dialogue messages...]
+─── Conversation ended (2 turns) ───
+🤔 Deciding: Return to town
+```
+
+---
+
 ## Testing
 
-To see all actions in the UI:
+To see the continuous event log in action:
 1. Start the game with `npm start`
 2. Click "Start Autonomous Mode"
-3. Watch as all actions, decisions, combat, and rewards appear in real-time
+3. Watch as the event log accumulates all actions chronologically
+4. Observe conversations appearing as events in the continuous flow (not as separate panels)
+5. Scroll through the event log to see the complete adventure history
 
-The game is now fully transparent about what the AI is doing!
+The game is now fully transparent about what the AI is doing, with complete history visible!
 
 ---
 
 **Status**: ✅ Complete and Working
-- All autonomous events now display in UI
+- All autonomous events display in UI
+- Event log is continuous and persistent
+- No events are lost between conversations
+- Complete adventure history visible and scrollable
 - Real-time feedback system fully implemented
 - Player can see complete adventure unfold
