@@ -589,8 +589,9 @@ class OllamaRPGApp {
     const narrationEl = document.getElementById('gm-narration');
     narrationEl.textContent = conversationData.narration;
 
-    // Clear dialogue history
-    document.getElementById('dialogue-history').innerHTML = '';
+    // DON'T clear dialogue history - keep accumulating all events
+    // Instead, add a conversation start event to the log
+    this.addEventToLog(`💬 Starting conversation with ${conversationData.npc.name}`, 'conversation-start');
 
     this.setStatus(`Watching conversation with ${conversationData.npc.name}`);
   }

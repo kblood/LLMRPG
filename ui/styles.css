@@ -1260,6 +1260,13 @@ body {
   font-weight: 500;
 }
 
+.event-conversation-start {
+  background: rgba(150, 100, 200, 0.1);
+  border-left: 4px solid #9664c8;
+  color: #b87ae8;
+  font-weight: 500;
+}
+
 .event-separator {
   text-align: center;
   color: var(--text-muted);
