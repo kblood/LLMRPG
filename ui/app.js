@@ -881,6 +881,11 @@ class OllamaRPGApp {
       const playerOnlyState = {
         player: this.currentReplay.initialState.player,
         // Don't include time, quests, world, npcs - let events populate them
+        time: null, // Explicitly clear time
+        quests: [], // Explicitly clear quests
+        world: null, // Explicitly clear world
+        npcs: [], // Explicitly clear npcs
+        inventory: this.currentReplay.initialState.inventory || null // Include initial inventory
       };
       this.updateGameUIFromState(playerOnlyState);
 
@@ -1042,7 +1047,17 @@ class OllamaRPGApp {
     // Time is only shown if the chronicler describes it
     if (event.type !== 'time_changed') {
       const eventEl = document.createElement('div');
-      eventEl.className = `replay-event ${event.type.includes('dialogue') ? 'dialogue' : event.type.includes('action') ? 'action' : 'event'}`;
+      let eventClass = 'replay-event ';
+      if (event.type === 'gm_narration') {
+        eventClass += 'narration';
+      } else if (event.type.includes('dialogue')) {
+        eventClass += 'dialogue';
+      } else if (event.type.includes('action')) {
+        eventClass += 'action';
+      } else {
+        eventClass += 'event';
+      }
+      eventEl.className = eventClass;
 
       const header = document.createElement('div');
       header.className = 'replay-event-header';
@@ -1117,6 +1132,8 @@ class OllamaRPGApp {
         message += ` <em>(${data.reason})</em>`;
       }
       contentEl.innerHTML = message;
+    } else if (event.type === 'gm_narration') {
+      contentEl.innerHTML = `<em class="narration">📖 ${data.text || ''}</em>`;
     } else {
       contentEl.textContent = JSON.stringify(data || {}, null, 2);
     }

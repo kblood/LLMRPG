@@ -179,7 +179,13 @@ export class GameBackend {
     // Listen for GM narrations
     this.eventBus.on('gm:narration', (data) => {
       console.log('[GameBackend] GM Narration:', data.text);
-      // Forward to renderer if needed
+      if (this.replayLogger) {
+        const gameState = this._captureGameState();
+        this.replayLogger.logEvent(this.session.frame, 'gm_narration', {
+          text: data.text,
+          context: data.context || ''
+        }, 'system', gameState);
+      }
     });
 
     // Listen for quest events and log to replay
@@ -1526,7 +1532,7 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
       };
 
       // Get active quests
-      const quests = [];
+      let quests = [];
       if (this.session.questLog && this.session.questLog.activeQuests) {
         for (const quest of this.session.questLog.activeQuests.values()) {
           quests.push({
@@ -1534,8 +1540,21 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
             title: quest.title,
             description: quest.description,
             status: quest.status,
-            currentStage: quest.currentStage,
-            stages: quest.stages
+            currentStage: quest.currentStage || 0,
+            stages: quest.stages || []
+          });
+        }
+      }
+      // Also get completed quests for history
+      if (this.session.questLog && this.session.questLog.completedQuests) {
+        for (const quest of this.session.questLog.completedQuests.values()) {
+          quests.push({
+            id: quest.id,
+            title: quest.title,
+            description: quest.description,
+            status: 'completed',
+            currentStage: quest.currentStage || 0,
+            stages: quest.stages || []
           });
         }
       }
