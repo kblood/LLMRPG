@@ -1,19 +1,24 @@
-# UI System - Autonomous Mode Action Display
+# UI System - Autonomous Mode Event Log Design
 
 **Last Updated**: 2025-11-22
-**Status**: Complete - All actions now visible
+**Status**: Complete - Unified continuous event log
 
 ---
 
 ## Overview
 
-The UI has been enhanced to display all autonomous mode actions in real-time. Previously, the AI was performing actions silently. Now players can see:
+The UI has been completely redesigned to display all autonomous mode events in a **single unified, continuous event log**. This represents a fundamental shift from the previous model where chronicler narrations were shown in a separate box that only displayed the most recent message.
 
+Now all events flow into a **chronological, scrollable event log** where nothing is lost:
+
+- ✅ All chronicler narrations (from game narrator system)
 - ✅ Action decisions (what AI chose to do)
 - ✅ Action results (outcomes with narrative)
 - ✅ Combat encounters (enemies encountered)
 - ✅ Combat results (victory/defeat with rewards)
-- ✅ Conversations (dialogue in real-time)
+- ✅ Conversations (dialogue with timestamps)
+- ✅ Scene transitions (time passing, location changes)
+- ✅ Quest updates (new quests, completions)
 
 ---
 
@@ -302,53 +307,167 @@ This architecture allows for:
 
 ---
 
-## Continuous Event Log Design
+## Unified Event Log Architecture
 
-**Key Feature**: The event log is **persistent and continuous** throughout autonomous gameplay.
+**Key Feature**: All game events flow into a **single persistent, continuous event log** where nothing is lost.
 
-- Events are **never cleared** between conversations
-- Each new conversation adds a "💬 Starting conversation with {NPC}" event to the log
-- All previous actions, combats, and decisions remain visible
-- Players can scroll back to see the entire game history
-- The log grows chronologically as the game progresses
+### What Changed
 
-**Event Order Example**:
+**Before**:
+- Chronicler narrations appeared in a separate "GM Narration" box that only showed the latest message
+- All other events (actions, combat, dialogue) accumulated in the dialogue history
+- Narrator commentary was only captured for replay, not shown to the player
+- Result: Only the most recent narration was visible; all previous narrator voice was lost
+
+**After**:
+- All narrations are now captured and added to the unified event log
+- The GM narration box is hidden in autonomous mode
+- Everything flows chronologically into one scrollable log
+- Players can scroll back to see complete narrator commentary alongside all other events
+- Complete transparency into both the game world's events AND the narrator's reactions to them
+
+### Event Types in the Log
+
+Each event type has a unique emoji and color for visual scanning:
+
+| Event Type | Emoji | Color | Source |
+|-----------|-------|-------|--------|
+| Chronicler Narration | 📖 | Red/Pink (italic) | GameMaster narrator system |
+| Action Decision | 🤔 | Blue | Autonomous action loop decision phase |
+| Action Result | 📖 | Orange | Action execution result with narrative |
+| Combat Encounter | ⚔️ | Dark Red | Combat system when enemies appear |
+| Combat Result | ⚔️ | Orange-Red | Combat conclusion with outcome |
+| Reward/Treasure | 💰 | Yellow | XP/gold/item gains |
+| Conversation Start | 💬 | Purple | NPC dialogue beginning |
+| Quest Update | ⚡ | Light Blue | Quest created or completed |
+| Conversation End | ─── | Gray | Separator marking end of dialogue |
+| Scene Transition | ⏱️ | Cyan | Location/time changes |
+
+### Event Log Flow Example
+
 ```
-🤔 Deciding: Investigate the tavern
+📖 The morning sun breaks over the tavern. A tense silence grips the common room.
+🤔 Deciding: Investigate the tavern for rumors and opportunities
 💬 Starting conversation with Mara
-[dialogue messages...]
-─── Conversation ended (3 turns) ───
-🤔 Deciding: Search the area
-📖 You find evidence of recent activity
-🤔 Deciding: Travel north
-⚔️ Combat! Encountered Bandit Captain, Bandit
-⚔️ After a fierce battle, you stand victorious!
-💰 Combat victory! Gained 100 XP and 50 gold
-💬 Starting conversation with Bandit Leader
-[dialogue messages...]
+[Kael]: "What news of the kingdom?"
+[Mara]: "Ah, there have been troubles with bandits recently..."
+[Kael]: "Where are they located?"
+[Mara]: "Mostly north, in the old ruins beyond the forest..."
 ─── Conversation ended (2 turns) ───
-🤔 Deciding: Return to town
+📖 The tavern keeper's words weigh heavy on your mind. Bandits? In the ruins?
+🤔 Deciding: Travel north to investigate the bandit threat
+⚔️ Combat! Encountered Bandit Scout, Bandit Archer
+📖 The bandits emerge from behind fallen trees, weapons drawn!
+⚔️ After a fierce battle, you stand victorious!
+💰 Combat victory! Gained 150 XP and 75 gold
+⚡ Quest Updated: "Defeat the Bandits"
+🤔 Deciding: Return to town to report your success
+💬 Starting conversation with Mara
+[Kael]: "I have slain the bandits threatening your roads."
+[Mara]: "By the gods! You are a true hero! Here, take this as reward..."
+─── Conversation ended (2 turns) ───
+⚡ Quest Completed: "Defeat the Bandits"
+💰 Quest Reward: 500 gold, gained level!
+```
+
+### How Chronicler Messages Now Work
+
+**Old System**:
+- Internal `gm:narration` events → Captured only for replay logging → NOT sent to UI
+- Result: Narrator voice only available in replay viewer, not during gameplay
+
+**New System**:
+- Internal `gm:narration` events → Captured for replay logging → ALSO sent to UI via `autonomous:chronicler`
+- UI receives chronicler events → Logs them to event log with 📖 emoji and red/pink styling
+- Result: Narrator voice is preserved and visible chronologically alongside all other events
+
+The chronicler messages provide crucial context and atmosphere:
+- World state descriptions
+- Emotional tone setting
+- Thematic commentary
+- Environmental descriptions
+- Plot development narration
+
+By integrating these into the event log, players get the complete authored experience the game designer intended.
+
+---
+
+## Testing the Unified Event Log
+
+To experience the unified event log with chronicler messages:
+
+1. **Start the game**: `npm start`
+2. **Begin autonomous mode**: Click "Start Autonomous Mode"
+3. **Observe the event log flow**:
+   - Watch for 📖 chronicler messages interspersed with other events
+   - See how narrator commentary provides context for AI decisions
+   - Notice action decisions (🤔) are followed by narrator reactions
+   - Combat encounters show both the system description (⚔️) and narrator voice (📖)
+4. **Scroll through history**: The entire chronological adventure is preserved
+5. **Read the complete story**: You get both the mechanical events AND the literary narration
+
+### Expected Event Log Pattern
+
+When you see an event log entry like this, it indicates successful integration:
+
+```
+🤔 Deciding: Search the ruins for treasure
+📖 You push through the ancient stone doorway. The air is thick with dust
+   and the scent of age. Scattered coins and gems lie among the rubble.
+💬 Starting conversation with Ancient Guardian
+```
+
+The 📖 chronicler message between the decision and the next event shows the narrator is now properly integrated!
+
+---
+
+## Implementation Details
+
+### Files Modified
+
+**Backend**:
+- `electron/ipc/GameBackend.js` - Expose gm:narration to UI in autonomous mode
+
+**IPC Bridge**:
+- `electron/preload.js` - Add onAutonomousChronicler listener
+
+**UI**:
+- `ui/app.js` - Add chronicler listener and integrate into event log
+- `ui/index.html` - Mark gm-narration as manual-only mode
+- `ui/styles.css` - Add event-chronicler styling, hide gm-narration in autonomous mode
+
+### Event Flow Diagram
+
+```
+GameMaster system
+  ↓
+Emits: gm:narration event
+  ↓
+GameBackend.setupEventListeners()
+  ├→ Log to replay system
+  └→ If autonomous mode: _sendToUI('autonomous:chronicler')
+       ↓
+       IPC channel
+       ↓
+       preload.js: onAutonomousChronicler
+       ↓
+       app.js: Listen for chronicler events
+       ↓
+       addEventToLog(📖 text, 'chronicler')
+       ↓
+       Rendered in dialogue-history with event-chronicler styling
 ```
 
 ---
 
-## Testing
+**Status**: ✅ Complete - Unified Event Log System Implemented
 
-To see the continuous event log in action:
-1. Start the game with `npm start`
-2. Click "Start Autonomous Mode"
-3. Watch as the event log accumulates all actions chronologically
-4. Observe conversations appearing as events in the continuous flow (not as separate panels)
-5. Scroll through the event log to see the complete adventure history
-
-The game is now fully transparent about what the AI is doing, with complete history visible!
-
----
-
-**Status**: ✅ Complete and Working
-- All autonomous events display in UI
-- Event log is continuous and persistent
-- No events are lost between conversations
-- Complete adventure history visible and scrollable
-- Real-time feedback system fully implemented
-- Player can see complete adventure unfold
+### Achievements
+- ✅ All chronicler narrations now visible in autonomous mode
+- ✅ Unified event log removes the separate gm-narration box
+- ✅ Event log is continuous and persistent across all gameplay
+- ✅ No events are lost between conversations
+- ✅ Complete adventure history with narrator voice visible and scrollable
+- ✅ Real-time feedback system fully implemented
+- ✅ Player sees complete story unfold - both mechanical events AND literary narration
+- ✅ Emotional context and world atmosphere preserved through narrator commentary
