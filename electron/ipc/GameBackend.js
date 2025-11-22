@@ -186,6 +186,14 @@ export class GameBackend {
           context: data.context || ''
         }, 'system', gameState);
       }
+
+      // Send chronicler narration to UI in autonomous mode
+      if (this.autonomousMode) {
+        this._sendToUI('autonomous:chronicler', {
+          text: data.text,
+          context: data.context || ''
+        });
+      }
     });
 
     // Listen for quest events and log to replay

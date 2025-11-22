@@ -506,6 +506,12 @@ class OllamaRPGApp {
       console.error('[App] Autonomous error:', data.message);
       this.setStatus(`Error: ${data.message}`);
     });
+
+    // Chronicler narration - add all narrator messages to event log
+    this.gameAPI.onAutonomousChronicler?.((data) => {
+      console.log('[App] Chronicler:', data.text);
+      this.addEventToLog(`📖 ${data.text}`, 'chronicler');
+    });
   }
 
   async startAutonomousMode() {
@@ -585,9 +591,21 @@ class OllamaRPGApp {
     document.getElementById('current-npc-name').textContent = conversationData.npc.name;
     document.getElementById('current-npc-role').textContent = conversationData.npc.role;
 
-    // Show GM narration
+    // In autonomous mode, don't show gm-narration separately - all narration goes into event log
+    // In manual mode, show gm-narration for context
     const narrationEl = document.getElementById('gm-narration');
-    narrationEl.textContent = conversationData.narration;
+    const conversationPanel = document.getElementById('conversation-panel');
+
+    if (this.autonomousMode) {
+      // Hide the separate narration box in autonomous mode
+      narrationEl.classList.add('hidden');
+      conversationPanel.classList.remove('manual-mode');
+    } else {
+      // Show narration in manual mode
+      narrationEl.classList.remove('hidden');
+      narrationEl.textContent = conversationData.narration;
+      conversationPanel.classList.add('manual-mode');
+    }
 
     // DON'T clear dialogue history - keep accumulating all events
     // Instead, add a conversation start event to the log

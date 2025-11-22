@@ -591,6 +591,16 @@ body {
   font-style: normal;
 }
 
+/* Hide gm-narration in autonomous mode - all narration goes into event log */
+.gm-narration-manual-only {
+  display: none; /* Hidden by default in autonomous mode */
+}
+
+/* Show gm-narration only in manual mode when explicitly shown */
+.conversation-panel.manual-mode .gm-narration-manual-only {
+  display: block;
+}
+
 /* Transition Narration - Special styling for scene transitions */
 .gm-narration.transition-narration {
   background: linear-gradient(135deg, rgba(78, 204, 163, 0.15), rgba(52, 152, 219, 0.15));
@@ -1264,6 +1274,14 @@ body {
   background: rgba(150, 100, 200, 0.1);
   border-left: 4px solid #9664c8;
   color: #b87ae8;
+  font-weight: 500;
+}
+
+.event-chronicler {
+  background: rgba(233, 69, 96, 0.15);
+  border-left: 4px solid #e94560;
+  color: #ff6b7a;
+  font-style: italic;
   font-weight: 500;
 }
 
