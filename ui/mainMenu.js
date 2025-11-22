@@ -555,12 +555,19 @@ class MainMenu {
     }
 
     // Start the game with the world config
-    await this.gameAPI.initGame({
-      theme: this.config.selectedTheme,
-      playerName: this.generatedWorld.playerName,
-      gameTitle: this.generatedWorld.gameTitle,
-      worldConfig: this.generatedWorld
-    });
+    try {
+      const result = await this.gameAPI.init({
+        seed: Date.now(),
+        playerName: this.generatedWorld.playerName,
+        gameTitle: this.generatedWorld.gameTitle,
+        theme: this.config.selectedTheme,
+        worldConfig: this.generatedWorld
+      });
+      console.log('[MainMenu] Game initialized with world config:', result);
+    } catch (error) {
+      console.error('[MainMenu] Failed to initialize game:', error);
+      this.showError(`Failed to start game: ${error.message}`);
+    }
   }
 
   /**
