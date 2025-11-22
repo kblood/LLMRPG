@@ -52,7 +52,10 @@ class MainMenu {
       const models = await this.gameAPI.getAvailableModels();
       if (models.success) {
         this.availableModels = models.data;
-        console.log('[MainMenu] Available models:', this.availableModels);
+        console.log('[MainMenu] Available models count:', this.availableModels.length);
+        if (this.availableModels.length > 0) {
+          console.log('[MainMenu] First model structure:', JSON.stringify(this.availableModels[0], null, 2));
+        }
       }
     } catch (error) {
       console.error('[MainMenu] Failed to load models:', error);
@@ -138,13 +141,18 @@ class MainMenu {
     if (this.availableModels.length === 0) {
       modelsHTML = `<p class="error-text">⚠️ No Ollama models found. Make sure Ollama is running.</p>`;
     } else {
-      modelsHTML = this.availableModels.map((model, idx) => `
-        <div class="model-option ${this.config.selectedLLM === model ? 'selected' : ''}"
-             onclick="mainMenu.selectLLM('${model}')">
-          <div class="model-name">🤖 ${model}</div>
-          <div class="model-check">✓</div>
-        </div>
-      `).join('');
+      modelsHTML = this.availableModels.map((model, idx) => {
+        // Handle both string and object formats
+        const modelName = typeof model === 'string' ? model : (model.name || model.Model || JSON.stringify(model));
+        const isSelected = this.config.selectedLLM === modelName;
+        return `
+          <div class="model-option ${isSelected ? 'selected' : ''}"
+               onclick="mainMenu.selectLLM('${modelName}')">
+            <div class="model-name">🤖 ${modelName}</div>
+            <div class="model-check">✓</div>
+          </div>
+        `;
+      }).join('');
     }
 
     menu.innerHTML = `
@@ -559,7 +567,13 @@ class MainMenu {
    * Quick start with default settings
    */
   async showQuickStart() {
-    this.config.selectedLLM = this.availableModels[0] || 'llama2';
+    // Get the first model name (handle both string and object formats)
+    if (this.availableModels.length > 0) {
+      const firstModel = this.availableModels[0];
+      this.config.selectedLLM = typeof firstModel === 'string' ? firstModel : (firstModel.name || firstModel.model || 'llama2');
+    } else {
+      this.config.selectedLLM = 'llama2';
+    }
     this.config.selectedTheme = 'fantasy';
     this.saveConfig();
     await this.showWorldGeneration();
