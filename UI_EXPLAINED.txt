@@ -1,0 +1,238 @@
+╔═════════════════════════════════════════════════════════════════════════════╗
+║                       UI SYSTEM - COMPLETE EXPLANATION                      ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+HOW THE UI WORKS FROM STARTUP TO GAMEPLAY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STEP 1: APPLICATION LAUNCH (T=0-7 seconds)
+──────────────────────────────────────────
+
+┌─────────────────┐
+│ Loading Screen  │  "⚔️ OllamaRPG ⚔️"
+│ [Spinner]       │
+│                 │  "Initializing game..."
+│ Status: ...     │
+└─────────────────┘
+
+What Happens:
+  1. HTML loads, JavaScript executes
+  2. DOMContentLoaded event fires
+  3. OllamaRPGApp() class created
+  4. init() method called:
+     a. Setup event listeners
+     b. Check Ollama service
+     c. Initialize game world (backend)
+     d. Load NPC list
+     e. Load player stats
+     f. Show game screen
+
+RESULT: User sees fully loaded game with welcome panel
+
+
+STEP 2: GAME SCREEN READY (T=7+ seconds)
+─────────────────────────────────────────
+
+The header, sidebar, and welcome panel are all visible. The sidebar shows:
+  - Inventory panel
+  - Characters list (NPCs)
+  - Active quests (empty initially)
+  - World map (empty initially)
+
+The welcome panel shows two mode buttons:
+  - Play Manually: You control the character
+  - Watch AI Play: AI controls, you watch
+
+
+STEP 3: USER CLICKS "WATCH AI PLAY"
+────────────────────────────────────
+
+UI Changes:
+  ✓ Welcome Panel hidden
+  ✓ Conversation Panel shown
+  ✓ Player Panel shown (stats only)
+  ✓ Autonomous controls visible (Stop button)
+  ✓ Manual input area hidden
+
+Backend starts:
+  → Generate world data
+  → Generate opening narration
+  → Generate main quest
+  → Start autonomous loop
+
+
+STEP 4: OPENING NARRATION + QUEST (T=+5-15 seconds)
+────────────────────────────────────────────────────
+
+1. World appears in sidebar
+   - Cities, dungeons, landmarks
+   - Danger levels color-coded
+
+2. Opening narration displays
+   - Large text with 📖 symbol
+   - NPC header shows "The Chronicler"
+
+3. Quest received
+   - Gold-styled message in dialogue history
+   - Quest panel updates in sidebar
+
+
+STEP 5: AUTONOMOUS EVENTS BEGIN (T=+15+ seconds)
+─────────────────────────────────────────────────
+
+Backend sends events in sequence:
+
+  Event Type                    UI Display
+  ────────────────────────────  ──────────────────────────────
+  action-decision               🤔 Blue box
+  action                        Green notification
+  conversation-start            💬 Purple event
+  message                       Dialogue lines
+  conversation-end              Gray separator
+  chronicler                    📖 Pink italic narration
+  action-result                 📖 Brown narrative
+  combat-encounter              ⚔️ Dark red
+  combat-result                 ⚔️ Orange
+  transition                    ⏱️ Teal
+
+All events accumulate in the event log. Nothing is cleared.
+
+
+STEP 6: DURING GAMEPLAY
+───────────────────────
+
+The conversation panel shows:
+  - NPC header with name and relationship
+  - Scrollable event log with all events
+  - Stop button for controls
+
+User can scroll to see complete history:
+  - Which NPCs were talked to
+  - What decisions were made
+  - Combat encounters
+  - Narrator commentary
+  - Everything in order
+
+
+KEY POINTS
+══════════
+
+1. CONTINUOUS EVENT LOG
+   - All events accumulate in one area
+   - Color-coded by type
+   - Never cleared
+   - Complete history preserved
+
+2. PANEL SWITCHING
+   - Welcome panel and conversation panel swap visibility
+   - Sidebar always visible
+   - Clean separation of screens
+
+3. EVENT-DRIVEN UI
+   - Backend generates events
+   - Frontend listens for events
+   - UI updates in response
+   - Loose coupling between game and UI
+
+4. DUAL MODES
+   - Manual: User plays, can input, click NPCs
+   - Autonomous: AI plays, user watches, can stop
+
+5. SPECTATOR DESIGN
+   - In autonomous mode, user is watching
+   - Event log is the narrative
+   - All information flows through it
+
+
+EVENT LOG COLORS
+════════════════
+
+Blue        🤔 Action decisions
+Brown       📖 Action results
+Dark Red    ⚔️ Combat encounters
+Orange-Red  ⚔️ Combat results
+Yellow      💰 Rewards
+Purple      💬 Conversation starts
+Pink Italic 📖 Chronicler narration
+Gray        Separators
+Teal        ⏱️ Transitions
+
+
+VISUAL LAYOUT
+═════════════
+
+┌────────────────────────────────────────────────────────────┐
+│ Header: Time | Status                                      │
+├────────────┬──────────────────────────────────────────────┤
+│  Sidebar   │  Conversation Panel (when active)            │
+│  - Stats   │                                              │
+│  - NPCs    │  Event Log / Dialogue History (main area)    │
+│  - Quests  │  - All events appear here                    │
+│  - World   │  - Color-coded entries                       │
+│            │  - Scrollable for full history               │
+│            │  - Auto-scrolls to newest                    │
+│            │                                              │
+│            │  Controls (bottom)                           │
+│            │  - Stop Autonomous (if running)              │
+│            │  - Message input (if manual)                 │
+└────────────┴──────────────────────────────────────────────┘
+│ Status Bar: Current status | Ollama: Connected | Turns: X │
+└────────────────────────────────────────────────────────────┘
+
+
+WHY THIS DESIGN
+═══════════════
+
+Q: Why no separate GM narration box in autonomous mode?
+A: All narration flows into the event log. This makes the complete
+   story available in one scrollable location.
+
+Q: Why doesn't the event log clear?
+A: So you can scroll back and see everything that happened. It's a
+   chronicle of the entire adventure.
+
+Q: Why is sidebar always visible?
+A: Context. Shows your character stats, what quests are active, what
+   NPCs exist, where you can go.
+
+Q: Why color-coded events?
+A: Fast visual scanning. You can quickly see what type of event each
+   entry is without reading the text.
+
+Q: Why spectator mode in autonomous?
+A: To watch emergent storytelling. The AI creates unexpected narratives.
+   Your role is to observe and replay.
+
+
+TIMELINE OVERVIEW
+═════════════════
+
+T=0s       Launch
+T=0.5-3s   Loading
+T=3-5s     World initialization
+T=5-7s     Game screen shows
+T=7+       Welcome panel
+T=7        User clicks "Watch AI"
+T=10-15s   Opening narration and quest
+T=15+      Action events begin
+T=20+      First conversation
+T=45+      Multiple conversations and events
+T=∞        User can stop anytime
+
+
+SUMMARY
+═══════
+
+The UI is a reactive display system where:
+  1. Backend generates game events
+  2. Frontend listens via IPC
+  3. UI updates in response
+  4. All content flows through the event log
+  5. Sidebar provides context
+  6. Panels control what's visible
+
+In autonomous mode, you WATCH the story unfold in the event log.
+In manual mode, YOU CONTROL the story and input dialogue.
+
+The continuous event log design ensures nothing is lost and the
+complete adventure is always available to review by scrolling.
