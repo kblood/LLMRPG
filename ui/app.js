@@ -429,7 +429,7 @@ class OllamaRPGApp {
       if (data.type === 'npc_chosen') {
         this.setStatus(`${data.npcName} was chosen for conversation`);
         document.getElementById('mode-status').textContent = `Talking to ${data.npcName}`;
-        this.addEventToLog(`💬 Starting conversation with ${data.npcName}`, 'action');
+        // Don't add event here - onAutonomousConversationStart will add it via showConversationPanel
       }
     });
 
