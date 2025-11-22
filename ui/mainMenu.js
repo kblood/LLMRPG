@@ -557,6 +557,10 @@ class MainMenu {
     // Start the game with the world config
     try {
       console.log('[MainMenu] Starting game with world config...');
+      console.log('[MainMenu] Player name from world:', this.generatedWorld.playerName);
+      console.log('[MainMenu] Game title:', this.generatedWorld.gameTitle);
+      console.log('[MainMenu] Theme:', this.config.selectedTheme);
+
       const result = await this.gameAPI.init({
         seed: Date.now(),
         playerName: this.generatedWorld.playerName,

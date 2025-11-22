@@ -72,7 +72,11 @@ export class GameBackend {
     }
 
     try {
-      console.log('[GameBackend] Initializing...');
+      console.log('[GameBackend] Initializing with options:', {
+        playerName: options.playerName,
+        hasWorldConfig: !!options.worldConfig,
+        worldConfigNPCCount: options.worldConfig?.npcs?.length
+      });
 
       // Initialize services
       console.log('[GameBackend] Creating OllamaService instance...');
