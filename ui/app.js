@@ -703,8 +703,9 @@ class OllamaRPGApp {
     document.getElementById('current-npc-name').textContent = 'The Chronicler';
     document.getElementById('current-npc-role').textContent = 'Narrator';
 
-    // Clear dialogue history
-    document.getElementById('dialogue-history').innerHTML = '';
+    // DON'T clear dialogue history - keep accumulating all events
+    // Add opening narration to the event log instead
+    this.addEventToLog(`📖 ${narration}`, 'chronicler');
 
     this.setStatus('The tale begins...');
   }
