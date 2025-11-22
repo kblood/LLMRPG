@@ -1610,7 +1610,217 @@ Combat End Narration:`;
         this.npcInteractions = [];
         this.activeEvents = [];
         this.lastNarration = null;
-        
+
         this.logger.info('Game Master state reset');
+    }
+
+    /**
+     * Set the theme engine for theme-aware content generation
+     */
+    setThemeEngine(themeEngine) {
+        this.themeEngine = themeEngine;
+        this.logger.info(`Theme engine set to: ${themeEngine.getTheme()?.name || 'unset'}`);
+        return this;
+    }
+
+    /**
+     * Set the dynamic content generator for theme-aware content
+     */
+    setContentGenerator(contentGenerator) {
+        this.contentGenerator = contentGenerator;
+        this.logger.info('Dynamic content generator configured');
+        return this;
+    }
+
+    /**
+     * Generate a themed opening narration
+     */
+    async generateThemedOpeningNarration(player, theme = null) {
+        if (theme) {
+            this.themeEngine?.setTheme(theme);
+        }
+
+        const currentTheme = this.themeEngine?.getTheme();
+        const themeContext = this.themeEngine?.getThemeContext();
+
+        const prompt = `You are ${this.personality.name}, the Chronicler of a ${currentTheme?.name || 'mystical'} world.
+
+Theme: ${currentTheme?.name || 'Unknown'}
+Atmosphere: ${currentTheme?.settings.atmosphere || 'mysterious'}
+Tone: ${currentTheme?.settings.tone || 'epic'}
+Magic: ${currentTheme?.settings.magic || 'moderate'}
+
+The story begins with ${player.name}, ${player.backstory}
+
+Generate an atmospheric opening narration (3-5 paragraphs) that:
+1. Introduces the ${currentTheme?.name || 'world'} setting
+2. Establishes the ${currentTheme?.settings.tone || 'epic'} tone
+3. Hints at ${player.name}'s destiny
+4. Creates anticipation for what lies ahead
+5. Sets the thematic atmosphere perfectly
+
+Make it evocative, mysterious, and utterly fitting for a ${currentTheme?.name || 'grand'} adventure.
+
+Opening Narration:`;
+
+        try {
+            const narration = await this.ollama.generate(prompt, {
+                temperature: 0.85,
+                maxTokens: 600,
+                systemPrompt: this._getGMSystemPrompt()
+            });
+
+            this.narrativeMemory.push({
+                text: narration,
+                context: { type: 'themed_opening', theme: currentTheme?.name, player: player.name },
+                timestamp: Date.now()
+            });
+
+            return narration;
+        } catch (error) {
+            this.logger.error('Failed to generate themed opening narration:', error);
+            return this._getFallbackThemedOpeningNarration(player, currentTheme);
+        }
+    }
+
+    /**
+     * Generate themed NPCs using the content generator
+     */
+    async generateThemedNPCs(count = 5, options = {}) {
+        if (!this.contentGenerator) {
+            throw new Error('Content generator not configured. Call setContentGenerator() first.');
+        }
+
+        try {
+            return await this.contentGenerator.generateNPCRoster(count, options);
+        } catch (error) {
+            this.logger.error('Failed to generate themed NPCs:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Generate a themed item
+     */
+    async generateThemedItem(options = {}) {
+        if (!this.contentGenerator) {
+            throw new Error('Content generator not configured. Call setContentGenerator() first.');
+        }
+
+        try {
+            return await this.contentGenerator.generateItem(options);
+        } catch (error) {
+            this.logger.error('Failed to generate themed item:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Generate a themed quest
+     */
+    async generateThemedQuest(options = {}) {
+        if (!this.contentGenerator) {
+            throw new Error('Content generator not configured. Call setContentGenerator() first.');
+        }
+
+        try {
+            return await this.contentGenerator.generateQuest(options);
+        } catch (error) {
+            this.logger.error('Failed to generate themed quest:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Generate a themed main quest
+     */
+    async generateThemedMainQuest(player, options = {}) {
+        if (!this.contentGenerator) {
+            throw new Error('Content generator not configured. Call setContentGenerator() first.');
+        }
+
+        try {
+            return await this.contentGenerator.generateMainQuest({
+                ...options,
+                player: player
+            });
+        } catch (error) {
+            this.logger.error('Failed to generate themed main quest:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Generate a themed location
+     */
+    async generateThemedLocation(options = {}) {
+        if (!this.contentGenerator) {
+            throw new Error('Content generator not configured. Call setContentGenerator() first.');
+        }
+
+        try {
+            return await this.contentGenerator.generateLocation(options);
+        } catch (error) {
+            this.logger.error('Failed to generate themed location:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Get available themes
+     */
+    getAvailableThemes() {
+        if (!this.themeEngine) {
+            return [];
+        }
+
+        return this.themeEngine.getAvailableThemes();
+    }
+
+    /**
+     * Set the current game theme
+     */
+    setGameTheme(themeKey) {
+        if (!this.themeEngine) {
+            throw new Error('Theme engine not configured');
+        }
+
+        return this.themeEngine.setTheme(themeKey);
+    }
+
+    /**
+     * Get current theme context
+     */
+    getThemeContext() {
+        if (!this.themeEngine) {
+            return null;
+        }
+
+        return this.themeEngine.getThemeContext();
+    }
+
+    /**
+     * Fallback themed opening narration
+     */
+    _getFallbackThemedOpeningNarration(player, theme) {
+        const themeName = theme?.name || 'mystical';
+        const toneMap = {
+            'heroic_epic': `The dawn of legend breaks upon ${player.name}, a figure destined to reshape the very fabric of ${themeName}.`,
+            'exploration_discovery': `The vastness of ${themeName} opens before ${player.name}, filled with wonders yet unseen and secrets yet undiscovered.`,
+            'dread_investigation': `In the shadows of ${themeName}, ${player.name} stumbles upon a truth that will unravel everything they thought they knew.`,
+            'industrial_adventure': `The grinding gears of ${themeName} turn, and into their midst steps ${player.name}, ready to change the course of history.`,
+            'grim_survival': `The harsh world of ${themeName} cares nothing for ${player.name}, yet fate has drawn them into a storm of blood and steel.`
+        };
+
+        const tone = theme?.settings.tone || 'heroic_epic';
+        const opening = toneMap[tone] || toneMap['heroic_epic'];
+
+        return `${opening}
+
+The journey begins not with fanfare or celebration, but with a single step into the unknown. ${player.name} carries with them the weight of destiny, the burden of choice, and the endless possibilities that lie ahead.
+
+In this ${themeName} world, where ${theme?.settings.atmosphere || 'magic'} shapes reality itself, everything is about to change. The stage is set, the players are in motion, and the fate of worlds hangs in the balance.
+
+Welcome to your tale of wonder, danger, and transformation.`;
     }
 }
