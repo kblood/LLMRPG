@@ -1,12 +1,14 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { ThemePersistence } from './services/ThemePersistence.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 let mainWindow;
 let gameBackend;
+let themePersistence;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -50,6 +52,10 @@ function createWindow() {
 async function initializeGameBackend() {
   const { GameBackend } = await import('./ipc/GameBackend.js');
   gameBackend = new GameBackend();
+
+  // Initialize theme persistence
+  themePersistence = new ThemePersistence();
+  console.log('[Main] Theme persistence initialized');
 
   // Set up IPC handlers
   setupIPCHandlers();
@@ -229,6 +235,57 @@ function setupIPCHandlers() {
     } catch (error) {
       console.error('[Main] Failed to generate themed world:', error);
       return { success: false, error: error.message };
+    }
+  });
+
+  // Theme persistence handlers
+  ipcMain.handle('theme:save', async (event, themeId, themeData) => {
+    try {
+      const result = themePersistence.saveTheme(themeId, themeData);
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to save theme:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('theme:load', async (event, themeId) => {
+    try {
+      const result = themePersistence.loadTheme(themeId);
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to load theme:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('theme:list', async (event) => {
+    try {
+      const result = themePersistence.listThemes();
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to list themes:', error);
+      return { success: false, error: error.message, themes: [] };
+    }
+  });
+
+  ipcMain.handle('theme:delete', async (event, themeId) => {
+    try {
+      const result = themePersistence.deleteTheme(themeId);
+      return result;
+    } catch (error) {
+      console.error('[Main] Failed to delete theme:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('theme:exists', async (event, themeId) => {
+    try {
+      const exists = themePersistence.themeExists(themeId);
+      return { success: true, exists };
+    } catch (error) {
+      console.error('[Main] Failed to check theme:', error);
+      return { success: false, error: error.message, exists: false };
     }
   });
 }

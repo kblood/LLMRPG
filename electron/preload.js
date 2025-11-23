@@ -133,7 +133,14 @@ contextBridge.exposeInMainWorld('gameAPI', {
   // Theme and LLM management
   getAvailableModels: () => ipcRenderer.invoke('game:getAvailableModels'),
   getAvailableThemes: () => ipcRenderer.invoke('game:getAvailableThemes'),
-  generateThemedWorld: (config) => ipcRenderer.invoke('game:generateThemedWorld', config)
+  generateThemedWorld: (config) => ipcRenderer.invoke('game:generateThemedWorld', config),
+
+  // Theme persistence
+  saveTheme: (themeId, themeData) => ipcRenderer.invoke('theme:save', themeId, themeData),
+  loadTheme: (themeId) => ipcRenderer.invoke('theme:load', themeId),
+  listThemes: () => ipcRenderer.invoke('theme:list'),
+  deleteTheme: (themeId) => ipcRenderer.invoke('theme:delete', themeId),
+  themeExists: (themeId) => ipcRenderer.invoke('theme:exists', themeId)
 });
 
 console.log('[Preload] Game API exposed to renderer');
