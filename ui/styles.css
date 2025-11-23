@@ -2475,3 +2475,141 @@ body {
 .world-editor::-webkit-scrollbar-thumb:hover {
   background: var(--accent-primary);
 }
+
+/* ===== NEW MAIN MENU GRID ===== */
+
+.main-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.menu-button.large {
+  width: 100%;
+  padding: 1.5rem 1rem;
+  font-size: 1.1rem;
+}
+
+.menu-button.danger {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+  color: white;
+  box-shadow: 0 4px 15px rgba(231, 76, 60, 0.3);
+}
+
+.menu-button.danger:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 25px rgba(231, 76, 60, 0.4);
+}
+
+/* ===== CONFIGURATION MENU ===== */
+
+.config-info {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.config-info p {
+  color: var(--text-secondary);
+  margin: 0.8rem 0;
+  font-size: 0.95rem;
+}
+
+.config-info strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.config-menu-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+/* ===== PLAYER CONFIG PANEL ===== */
+
+.player-config-panel {
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.player-config-panel .input-group {
+  margin: 1.5rem 0;
+}
+
+.player-config-panel textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 0.95rem;
+  transition: border-color 0.3s ease;
+}
+
+.player-config-panel textarea:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(233, 69, 96, 0.2);
+}
+
+/* ===== THEME SELECT ===== */
+
+.theme-select {
+  width: 100%;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 2px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-family: var(--font-main);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.3s ease;
+}
+
+.theme-select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(233, 69, 96, 0.2);
+}
+
+.theme-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+
+@media (max-width: 1024px) {
+  .main-menu-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .config-menu-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .main-menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-menu-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .menu-button.large {
+    padding: 1rem;
+    font-size: 1rem;
+  }
+}

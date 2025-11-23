@@ -86,7 +86,7 @@ class MainMenu {
   }
 
   /**
-   * Show welcome screen
+   * Show welcome screen with main menu options
    */
   showWelcome() {
     this.currentStep = 'welcome';
@@ -101,19 +101,34 @@ class MainMenu {
         <div class="menu-content">
           <div class="welcome-section">
             <h2>Welcome, Adventurer!</h2>
-            <p>Welcome to OllamaRPG, where the Chronicler generates entire worlds for you to explore.</p>
-            <p>Configure your game settings and embark on a unique adventure.</p>
+            <p>Choose your path and embark on a legendary adventure.</p>
           </div>
 
-          <div class="menu-actions">
-            <button class="menu-button primary" onclick="mainMenu.showLLMSelection()">
-              ⚙️ Configure & Play
+          <!-- Main Menu Grid - 8 Buttons -->
+          <div class="main-menu-grid">
+            <button class="menu-button primary large" onclick="mainMenu.startGame()">
+              🎮 Start Game
             </button>
-            <button class="menu-button secondary" onclick="mainMenu.showQuickStart()">
-              ⚡ Quick Start
+            <button class="menu-button secondary large" onclick="mainMenu.showReplayViewer()">
+              📼 Play Replay
             </button>
-            <button class="menu-button secondary" onclick="mainMenu.showLoadTheme()">
+            <button class="menu-button secondary large" onclick="mainMenu.showGenerateThemeAdvanced()">
+              🌍 Generate New Theme
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showConfigureTheme()">
+              ⚙️ Configure Theme
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showSetLLMEngine()">
+              🤖 Set LLM Engine
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showSaveTheme()">
+              💾 Save Theme
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showLoadTheme()">
               📂 Load Theme
+            </button>
+            <button class="menu-button danger large" onclick="mainMenu.quitGame()">
+              🚪 Quit Game
             </button>
           </div>
 
@@ -134,9 +149,9 @@ class MainMenu {
   }
 
   /**
-   * Show LLM selection screen
+   * Show LLM selection screen (Set LLM Engine)
    */
-  showLLMSelection() {
+  showSetLLMEngine() {
     this.currentStep = 'llm-select';
     const menu = document.getElementById('main-menu');
 
@@ -540,57 +555,6 @@ class MainMenu {
   }
 
   /**
-   * Start the game with the configured world
-   */
-  async startGame() {
-    // Collect edited values
-    if (this.generatedWorld.gameTitle) {
-      this.generatedWorld.gameTitle = document.getElementById('edit-title')?.value || this.generatedWorld.gameTitle;
-    }
-    if (this.generatedWorld.playerName) {
-      this.generatedWorld.playerName = document.getElementById('edit-player')?.value || this.generatedWorld.playerName;
-    }
-
-    // Store world config for game backend
-    localStorage.setItem('game_world_config', JSON.stringify(this.generatedWorld));
-
-    // Hide menu and start game
-    const menuDiv = document.getElementById('main-menu');
-    if (menuDiv) {
-      menuDiv.style.display = 'none';
-    }
-
-    // Start the game with the world config
-    try {
-      console.log('[MainMenu] Starting game with world config...');
-      console.log('[MainMenu] Player name from world:', this.generatedWorld.playerName);
-      console.log('[MainMenu] Game title:', this.generatedWorld.gameTitle);
-      console.log('[MainMenu] Theme:', this.config.selectedTheme);
-
-      const result = await this.gameAPI.init({
-        seed: Date.now(),
-        playerName: this.generatedWorld.playerName,
-        gameTitle: this.generatedWorld.gameTitle,
-        theme: this.config.selectedTheme,
-        worldConfig: this.generatedWorld
-      });
-      console.log('[MainMenu] Backend initialized with world config:', result);
-
-      // Initialize the UI with the configured settings
-      // Pass true to skip backend init since we already did it above
-      if (typeof app !== 'undefined' && app) {
-        console.log('[MainMenu] Initializing app UI...');
-        await app.init(true);
-      } else {
-        console.error('[MainMenu] App not found - UI initialization failed');
-      }
-    } catch (error) {
-      console.error('[MainMenu] Failed to start game:', error);
-      this.showError(`Failed to start game: ${error.message}`);
-    }
-  }
-
-  /**
    * Quick start with default settings
    */
   async showQuickStart() {
@@ -959,6 +923,730 @@ class MainMenu {
     } catch (error) {
       console.error('[MainMenu] Load theme data error:', error);
       this.showError(`Failed to load theme: ${error.message}`);
+    }
+  }
+
+  /**
+   * Start game immediately with current configuration
+   */
+  async startGame() {
+    if (!this.generatedWorld) {
+      this.showError('No world loaded. Generate or load a theme first.');
+      return;
+    }
+
+    // Proceed with starting the game (use existing startGame logic)
+    await this.startGameWithWorld();
+  }
+
+  /**
+   * Internal method to start game with loaded world
+   */
+  async startGameWithWorld() {
+    // Collect edited values
+    if (this.generatedWorld.gameTitle) {
+      this.generatedWorld.gameTitle = document.getElementById('edit-title')?.value || this.generatedWorld.gameTitle;
+    }
+    if (this.generatedWorld.playerName) {
+      this.generatedWorld.playerName = document.getElementById('edit-player')?.value || this.generatedWorld.playerName;
+    }
+
+    // Store world config for game backend
+    localStorage.setItem('game_world_config', JSON.stringify(this.generatedWorld));
+
+    // Hide menu and start game
+    const menuDiv = document.getElementById('main-menu');
+    if (menuDiv) {
+      menuDiv.style.display = 'none';
+    }
+
+    // Start the game with the world config
+    try {
+      console.log('[MainMenu] Starting game with world config...');
+      console.log('[MainMenu] Player name from world:', this.generatedWorld.playerName);
+
+      const result = await this.gameAPI.init({
+        seed: Date.now(),
+        playerName: this.generatedWorld.playerName,
+        gameTitle: this.generatedWorld.gameTitle,
+        theme: this.config.selectedTheme,
+        worldConfig: this.generatedWorld
+      });
+      console.log('[MainMenu] Backend initialized with world config:', result);
+
+      // Initialize the UI with the configured settings
+      if (typeof app !== 'undefined' && app) {
+        console.log('[MainMenu] Initializing app UI...');
+        await app.init(true);
+      } else {
+        console.error('[MainMenu] App not found - UI initialization failed');
+      }
+    } catch (error) {
+      console.error('[MainMenu] Failed to start game:', error);
+      this.showError(`Failed to start game: ${error.message}`);
+      // Show menu again on error
+      if (menuDiv) {
+        menuDiv.style.display = 'block';
+      }
+    }
+  }
+
+  /**
+   * Show replay viewer
+   */
+  async showReplayViewer() {
+    this.currentStep = 'replay-viewer';
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>📼 Replay Viewer</h1>
+          <p>Watch recorded autonomous mode adventures</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Loading replays...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+            ← Back
+          </button>
+        </div>
+      </div>
+    `;
+
+    try {
+      const result = await this.gameAPI.listReplays();
+
+      if (!result.success || !result.data || result.data.length === 0) {
+        menu.innerHTML = `
+          <div class="menu-container">
+            <div class="menu-header">
+              <h1>📼 Replay Viewer</h1>
+              <p>No replays available</p>
+            </div>
+
+            <div class="menu-content">
+              <div class="error-text">
+                No replays found. Run autonomous mode to create replays!
+              </div>
+            </div>
+
+            <div class="menu-actions">
+              <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+                ← Back
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const replaysHTML = result.data.map(replay => `
+        <div class="theme-card" onclick="mainMenu.loadReplay('${replay}')">
+          <div class="theme-header">📼 ${replay}</div>
+          <p class="theme-description">Click to play this replay</p>
+        </div>
+      `).join('');
+
+      menu.innerHTML = `
+        <div class="menu-container">
+          <div class="menu-header">
+            <h1>📼 Replay Viewer</h1>
+            <p>Select a replay to watch</p>
+          </div>
+
+          <div class="menu-content">
+            <div class="themes-grid">
+              ${replaysHTML}
+            </div>
+          </div>
+
+          <div class="menu-actions">
+            <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+              ← Back
+            </button>
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      console.error('[MainMenu] Error loading replays:', error);
+      this.showError(`Failed to load replays: ${error.message}`);
+    }
+  }
+
+  /**
+   * Load and play a replay
+   */
+  async loadReplay(filename) {
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>📼 Loading Replay...</h1>
+          <p>Please wait</p>
+        </div>
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Loading ${filename}...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const result = await this.gameAPI.loadReplay(filename);
+
+      if (result.success) {
+        // Hide menu and start replay viewer in app
+        menu.style.display = 'none';
+
+        if (typeof app !== 'undefined' && app) {
+          await app.showReplayViewer();
+        }
+      } else {
+        this.showError(`Failed to load replay: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[MainMenu] Error loading replay:', error);
+      this.showError(`Failed to load replay: ${error.message}`);
+    }
+  }
+
+  /**
+   * Show advanced generate theme screen with custom instructions
+   */
+  async showGenerateThemeAdvanced() {
+    this.currentStep = 'gen-theme-advanced';
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>🌍 Generate New Theme</h1>
+          <p>Create a unique world with optional custom instructions</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="generation-settings">
+            <div class="input-group">
+              <label for="adv-theme-select">Theme:</label>
+              <select id="adv-theme-select" class="theme-select">
+                <option value="fantasy">🐉 Fantasy</option>
+                <option value="sci-fi">🚀 Science Fiction</option>
+                <option value="cthulhu">👁️ Cosmic Horror</option>
+                <option value="steampunk">⚙️ Steampunk</option>
+                <option value="dark_fantasy">⚫ Dark Fantasy</option>
+              </select>
+            </div>
+
+            <div class="input-group">
+              <label for="adv-game-title">Game Title:</label>
+              <input type="text" id="adv-game-title" placeholder="Enter a title for your game" />
+            </div>
+
+            <div class="input-group">
+              <label for="adv-player-name">Player Name:</label>
+              <input type="text" id="adv-player-name" placeholder="Enter your character name" value="Kael" />
+            </div>
+
+            <div class="generation-options">
+              <label>
+                <input type="checkbox" id="adv-gen-npcs" checked />
+                Generate NPCs (5 unique characters with backstories)
+              </label>
+              <label>
+                <input type="checkbox" id="adv-gen-quests" checked />
+                Generate Quests (main quest + side quests)
+              </label>
+              <label>
+                <input type="checkbox" id="adv-gen-items" checked />
+                Generate Items (weapons, armor, artifacts)
+              </label>
+              <label>
+                <input type="checkbox" id="adv-gen-locations" checked />
+                Generate Locations (themed world locations)
+              </label>
+            </div>
+
+            <div class="input-group">
+              <label for="adv-custom-instructions">Custom LLM Instructions (Optional):</label>
+              <textarea id="adv-custom-instructions" placeholder="Provide custom instructions for how the LLM should generate this world. For example: 'Make the NPCs comedic and sarcastic' or 'Focus on horror and dread'"
+                        rows="4"></textarea>
+              <small style="color: var(--text-muted);">Leave empty to use default generation style</small>
+            </div>
+
+            <div class="generation-info">
+              <p>🔄 Generation will use your selected LLM</p>
+              <p>⏱️ This may take a minute or two depending on your model and hardware.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+            ← Back
+          </button>
+          <button class="menu-button primary" onclick="mainMenu.generateWorldAdvanced()">
+            🎲 Generate World
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Pre-select current theme if any
+    if (this.config.selectedTheme) {
+      setTimeout(() => {
+        const select = document.getElementById('adv-theme-select');
+        if (select) {
+          select.value = this.config.selectedTheme;
+        }
+      }, 100);
+    }
+  }
+
+  /**
+   * Generate world with advanced options
+   */
+  async generateWorldAdvanced() {
+    const theme = document.getElementById('adv-theme-select').value;
+    const gameTitle = document.getElementById('adv-game-title').value || `${theme} Adventure`;
+    const playerName = document.getElementById('adv-player-name').value || 'Kael';
+    const customInstructions = document.getElementById('adv-custom-instructions').value || null;
+    const generateNPCs = document.getElementById('adv-gen-npcs').checked;
+    const generateQuests = document.getElementById('adv-gen-quests').checked;
+    const generateItems = document.getElementById('adv-gen-items').checked;
+    const generateLocations = document.getElementById('adv-gen-locations').checked;
+
+    this.config.selectedTheme = theme;
+    this.config.selectedLLM = this.config.selectedLLM || 'llama2';
+    this.saveConfig();
+
+    const menu = document.getElementById('main-menu');
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>Generating Your World...</h1>
+          <p>The Chronicler is weaving your destiny</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Initializing ${theme} world...</span>
+            </div>
+            ${generateNPCs ? '<div class="progress-item"><span class="progress-spinner">⏳</span><span>Generating NPCs with backstories...</span></div>' : ''}
+            ${generateQuests ? '<div class="progress-item"><span class="progress-spinner">⏳</span><span>Crafting your main quest...</span></div>' : ''}
+            ${generateItems ? '<div class="progress-item"><span class="progress-spinner">⏳</span><span>Creating themed items and artifacts...</span></div>' : ''}
+            ${generateLocations ? '<div class="progress-item"><span class="progress-spinner">⏳</span><span>Mapping world locations...</span></div>' : ''}
+            ${customInstructions ? '<div class="progress-item"><span class="progress-spinner">⏳</span><span>Applying custom instructions...</span></div>' : ''}
+          </div>
+
+          <p class="generation-message">
+            🎮 Please wait while your unique world is being generated...
+          </p>
+        </div>
+      </div>
+    `;
+
+    try {
+      const generationConfig = {
+        theme: theme,
+        playerName: playerName,
+        llmModel: this.config.selectedLLM,
+        generateNPCs: generateNPCs,
+        generateQuests: generateQuests,
+        generateItems: generateItems,
+        generateLocations: generateLocations,
+        gameTitle: gameTitle
+      };
+
+      // Add custom instructions if provided
+      if (customInstructions && customInstructions.trim()) {
+        generationConfig.customInstructions = customInstructions;
+      }
+
+      const result = await this.gameAPI.generateThemedWorld(generationConfig);
+
+      if (result.success) {
+        this.generatedWorld = result.data;
+        this.showWorldEditor();
+      } else {
+        this.showError(`Failed to generate world: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[MainMenu] Generation error:', error);
+      this.showError(`Generation failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Show configure theme main menu
+   */
+  async showConfigureTheme() {
+    this.currentStep = 'configure-theme';
+    const menu = document.getElementById('main-menu');
+
+    if (!this.generatedWorld) {
+      this.showError('No world loaded. Generate or load a theme first.');
+      return;
+    }
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>⚙️ Configure Theme</h1>
+          <p>Customize your world</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="config-info">
+            <p>Current Theme: <strong>${this.getThemeName(this.config.selectedTheme || 'unknown')}</strong></p>
+            <p>Game Title: <strong>${this.generatedWorld.gameTitle || 'Untitled'}</strong></p>
+            <p>Player: <strong>${this.generatedWorld.playerName || 'Kael'}</strong></p>
+            <p>NPCs: <strong>${this.generatedWorld.npcs?.length || 0}</strong></p>
+            <p>Items: <strong>${this.generatedWorld.items?.length || 0}</strong></p>
+            <p>Locations: <strong>${this.generatedWorld.locations?.length || 0}</strong></p>
+          </div>
+
+          <div class="config-menu-grid">
+            <button class="menu-button secondary large" onclick="mainMenu.showSetupWorld()">
+              🗺️ Setup World
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showNPCManager()">
+              👥 NPCs
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showItemsEditor()">
+              🎁 Items
+            </button>
+            <button class="menu-button secondary large" onclick="mainMenu.showPlayerConfig()">
+              👤 Player
+            </button>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+            ← Back
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Show setup world (locations editor)
+   */
+  showSetupWorld() {
+    this.currentStep = 'setup-world';
+    const menu = document.getElementById('main-menu');
+
+    const locations = this.generatedWorld.locations || [];
+    const locationsHTML = locations.map((loc, idx) => `
+      <div class="location-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div style="flex: 1;">
+            <input type="text" class="editor-input" data-loc-idx="${idx}" data-loc-field="name" value="${loc.name || ''}" placeholder="Location name" />
+            <input type="text" class="editor-input" data-loc-idx="${idx}" data-loc-field="type" value="${loc.type || ''}" placeholder="Location type (e.g., Forest, Castle)" />
+            <textarea class="editor-input" data-loc-idx="${idx}" data-loc-field="description" placeholder="Location description" rows="2">${loc.description || ''}</textarea>
+          </div>
+          <button class="btn-small" onclick="mainMenu.removeLocation(${idx})" style="margin-left: 1rem;">🗑️ Remove</button>
+        </div>
+      </div>
+    `).join('');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>🗺️ Setup World - Locations</h1>
+          <p>Edit world locations</p>
+        </div>
+
+        <div class="menu-content world-editor">
+          ${locationsHTML}
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showConfigureTheme()">
+            ← Back
+          </button>
+          <button class="menu-button secondary" onclick="mainMenu.addLocation()">
+            ➕ Add Location
+          </button>
+          <button class="menu-button primary" onclick="mainMenu.showConfigureTheme()">
+            Save & Continue
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Add a new location
+   */
+  addLocation() {
+    if (!this.generatedWorld.locations) {
+      this.generatedWorld.locations = [];
+    }
+    this.generatedWorld.locations.push({
+      name: 'New Location',
+      type: 'Unknown',
+      description: ''
+    });
+    this.showSetupWorld();
+  }
+
+  /**
+   * Remove a location
+   */
+  removeLocation(idx) {
+    if (this.generatedWorld.locations) {
+      this.generatedWorld.locations.splice(idx, 1);
+      this.showSetupWorld();
+    }
+  }
+
+  /**
+   * Show NPC manager
+   */
+  showNPCManager() {
+    this.currentStep = 'npc-manager';
+    const menu = document.getElementById('main-menu');
+
+    const npcs = this.generatedWorld.npcs || [];
+    const npcsHTML = npcs.map((npc, idx) => `
+      <div class="npc-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div style="flex: 1;">
+            <input type="text" class="npc-name" data-npc-idx="${idx}" value="${npc.name || ''}" placeholder="NPC name" />
+            <input type="text" class="editor-input" data-npc-idx="${idx}" data-npc-field="role" value="${npc.role || ''}" placeholder="Role (e.g., Warrior, Mage)" />
+            <textarea class="npc-backstory" data-npc-idx="${idx}" placeholder="Character backstory">${npc.backstory || ''}</textarea>
+          </div>
+          <button class="btn-small" onclick="mainMenu.removeNPC(${idx})" style="margin-left: 1rem;">🗑️ Remove</button>
+        </div>
+      </div>
+    `).join('');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>👥 NPC Manager</h1>
+          <p>Add, edit, or remove NPCs</p>
+        </div>
+
+        <div class="menu-content world-editor">
+          ${npcsHTML}
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showConfigureTheme()">
+            ← Back
+          </button>
+          <button class="menu-button secondary" onclick="mainMenu.addNPCFromConfig()">
+            ➕ Add NPC
+          </button>
+          <button class="menu-button primary" onclick="mainMenu.showConfigureTheme()">
+            Save & Continue
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Add a new NPC (from configure menu)
+   */
+  addNPCFromConfig() {
+    if (!this.generatedWorld.npcs) {
+      this.generatedWorld.npcs = [];
+    }
+    this.generatedWorld.npcs.push({
+      name: 'New NPC',
+      role: 'Adventurer',
+      backstory: ''
+    });
+    this.showNPCManager();
+  }
+
+  /**
+   * Remove an NPC (from configure menu)
+   */
+  removeNPCFromConfig(idx) {
+    if (this.generatedWorld.npcs) {
+      this.generatedWorld.npcs.splice(idx, 1);
+      this.showNPCManager();
+    }
+  }
+
+  /**
+   * Show items editor
+   */
+  showItemsEditor() {
+    this.currentStep = 'items-editor';
+    const menu = document.getElementById('main-menu');
+
+    const items = this.generatedWorld.items || [];
+    const itemsHTML = items.map((item, idx) => `
+      <div class="item-card">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+          <div style="flex: 1;">
+            <input type="text" class="editor-input" data-item-idx="${idx}" data-item-field="name" value="${item.name || ''}" placeholder="Item name" />
+            <input type="text" class="editor-input" data-item-idx="${idx}" data-item-field="rarity" value="${item.rarity || 'common'}" placeholder="Rarity (common, rare, epic, legendary)" />
+            <textarea class="editor-input" data-item-idx="${idx}" data-item-field="description" placeholder="Item description" rows="2">${item.description || ''}</textarea>
+          </div>
+          <button class="btn-small" onclick="mainMenu.removeItem(${idx})" style="margin-left: 1rem;">🗑️ Remove</button>
+        </div>
+      </div>
+    `).join('');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>🎁 Items Editor</h1>
+          <p>Manage world items and artifacts</p>
+        </div>
+
+        <div class="menu-content world-editor">
+          ${itemsHTML}
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showConfigureTheme()">
+            ← Back
+          </button>
+          <button class="menu-button secondary" onclick="mainMenu.addItem()">
+            ➕ Add Item
+          </button>
+          <button class="menu-button primary" onclick="mainMenu.showConfigureTheme()">
+            Save & Continue
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Add a new item
+   */
+  addItem() {
+    if (!this.generatedWorld.items) {
+      this.generatedWorld.items = [];
+    }
+    this.generatedWorld.items.push({
+      name: 'New Item',
+      rarity: 'common',
+      description: ''
+    });
+    this.showItemsEditor();
+  }
+
+  /**
+   * Remove an item
+   */
+  removeItem(idx) {
+    if (this.generatedWorld.items) {
+      this.generatedWorld.items.splice(idx, 1);
+      this.showItemsEditor();
+    }
+  }
+
+  /**
+   * Show player configuration
+   */
+  showPlayerConfig() {
+    this.currentStep = 'player-config';
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>👤 Player Configuration</h1>
+          <p>Customize your character</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="player-config-panel">
+            <div class="input-group">
+              <label for="config-player-name">Player Name:</label>
+              <input type="text" id="config-player-name" placeholder="Enter player name"
+                     value="${this.generatedWorld.playerName || 'Kael'}" />
+            </div>
+
+            <div class="input-group">
+              <label for="config-player-backstory">Player Backstory:</label>
+              <textarea id="config-player-backstory" placeholder="Describe your character's background and motivations"
+                        rows="4">${this.generatedWorld.playerBackstory || 'A curious adventurer who has arrived in the village.'}</textarea>
+            </div>
+
+            <div class="generation-info">
+              <p>💡 Your player name and backstory will appear in the game and affect NPC interactions.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showConfigureTheme()">
+            ← Back
+          </button>
+          <button class="menu-button primary" onclick="mainMenu.savePlayerConfig()">
+            ✓ Save Changes
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Save player configuration
+   */
+  savePlayerConfig() {
+    const playerName = document.getElementById('config-player-name').value || 'Kael';
+    const playerBackstory = document.getElementById('config-player-backstory').value || '';
+
+    this.generatedWorld.playerName = playerName;
+    this.generatedWorld.playerBackstory = playerBackstory;
+
+    console.log('[MainMenu] Player config saved:', { playerName, playerBackstory });
+
+    this.showConfigureTheme();
+  }
+
+  /**
+   * Quit the game
+   */
+  quitGame() {
+    console.log('[MainMenu] Quitting game...');
+
+    // Try electron quit first
+    try {
+      // eslint-disable-next-line no-undef
+      if (typeof electron !== 'undefined') {
+        const { ipcRenderer } = electron;
+        ipcRenderer.invoke('window:quit');
+        return;
+      }
+    } catch (e) {
+      // Fallback
+    }
+
+    // Fallback to window close
+    try {
+      window.close();
+    } catch (e) {
+      // Final fallback
+      this.showError('Cannot quit directly. Please close the application window.');
     }
   }
 
