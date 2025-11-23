@@ -211,13 +211,35 @@ class MainMenu {
   }
 
   /**
-   * Select an LLM
+   * Select an LLM and show confirmation
    */
   selectLLM(model) {
     this.config.selectedLLM = model;
     this.saveConfig();
-    this.showLLMSelection(); // Refresh to show selection
     console.log('[MainMenu] Selected LLM:', model);
+
+    // Show confirmation and return to menu
+    const menu = document.getElementById('main-menu');
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>✓ LLM Engine Set!</h1>
+        </div>
+
+        <div class="menu-content">
+          <div class="success-message">
+            <p>LLM Engine has been set to <strong>${model}</strong></p>
+            <p>This model will be used for all world generation and will be your default for future sessions.</p>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button primary" onclick="mainMenu.showWelcome()">
+            ← Back to Main Menu
+          </button>
+        </div>
+      </div>
+    `;
   }
 
   /**
@@ -871,7 +893,7 @@ class MainMenu {
   }
 
   /**
-   * Load theme data
+   * Load theme data and set as default
    */
   async loadThemeData(themeId) {
     const menu = document.getElementById('main-menu');
@@ -911,12 +933,38 @@ class MainMenu {
           theme: config.theme || 'fantasy'
         };
 
-        // Set selected theme
+        // Set selected theme as default and save
         this.config.selectedTheme = this.generatedWorld.theme;
         this.saveConfig();
 
-        // Show world editor so user can review/edit
-        this.showWorldEditor();
+        // Show confirmation and return to menu
+        const themeName = config.name || themeId;
+        menu.innerHTML = `
+          <div class="menu-container">
+            <div class="menu-header">
+              <h1>✓ Theme Loaded!</h1>
+            </div>
+
+            <div class="menu-content">
+              <div class="success-message">
+                <p><strong>${themeName}</strong> has been loaded and set as your default theme.</p>
+                <p>You can now start the game, configure it further, or return to the menu.</p>
+              </div>
+            </div>
+
+            <div class="menu-actions">
+              <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+                ← Back to Menu
+              </button>
+              <button class="menu-button secondary" onclick="mainMenu.showConfigureTheme()">
+                ⚙️ Configure Theme
+              </button>
+              <button class="menu-button primary" onclick="mainMenu.startGame()">
+                🎮 Start Game
+              </button>
+            </div>
+          </div>
+        `;
       } else {
         this.showError(`Failed to load theme: ${result.error}`);
       }
@@ -935,35 +983,32 @@ class MainMenu {
       return;
     }
 
-    // Proceed with starting the game (use existing startGame logic)
-    await this.startGameWithWorld();
+    // Initialize the game backend with world config
+    await this.initializeGameBackend();
+
+    // Then show mode selector
+    this.showGameplayModeSelector();
   }
 
   /**
-   * Internal method to start game with loaded world
+   * Initialize game backend with loaded world
    */
-  async startGameWithWorld() {
-    // Collect edited values
-    if (this.generatedWorld.gameTitle) {
+  async initializeGameBackend() {
+    // Collect edited values if from world editor
+    if (document.getElementById('edit-title')) {
       this.generatedWorld.gameTitle = document.getElementById('edit-title')?.value || this.generatedWorld.gameTitle;
     }
-    if (this.generatedWorld.playerName) {
+    if (document.getElementById('edit-player')) {
       this.generatedWorld.playerName = document.getElementById('edit-player')?.value || this.generatedWorld.playerName;
     }
 
     // Store world config for game backend
     localStorage.setItem('game_world_config', JSON.stringify(this.generatedWorld));
 
-    // Hide menu and start game
-    const menuDiv = document.getElementById('main-menu');
-    if (menuDiv) {
-      menuDiv.style.display = 'none';
-    }
-
-    // Start the game with the world config
     try {
-      console.log('[MainMenu] Starting game with world config...');
-      console.log('[MainMenu] Player name from world:', this.generatedWorld.playerName);
+      console.log('[MainMenu] Initializing backend with world config...');
+      console.log('[MainMenu] Player name:', this.generatedWorld.playerName);
+      console.log('[MainMenu] Game title:', this.generatedWorld.gameTitle);
 
       const result = await this.gameAPI.init({
         seed: Date.now(),
@@ -972,22 +1017,19 @@ class MainMenu {
         theme: this.config.selectedTheme,
         worldConfig: this.generatedWorld
       });
-      console.log('[MainMenu] Backend initialized with world config:', result);
 
-      // Initialize the UI with the configured settings
+      console.log('[MainMenu] Backend initialized:', result);
+
+      // Initialize the UI (skip backend init since we already did it)
       if (typeof app !== 'undefined' && app) {
-        console.log('[MainMenu] Initializing app UI...');
+        console.log('[MainMenu] Initializing app...');
         await app.init(true);
       } else {
-        console.error('[MainMenu] App not found - UI initialization failed');
+        console.error('[MainMenu] App not found');
       }
     } catch (error) {
-      console.error('[MainMenu] Failed to start game:', error);
-      this.showError(`Failed to start game: ${error.message}`);
-      // Show menu again on error
-      if (menuDiv) {
-        menuDiv.style.display = 'block';
-      }
+      console.error('[MainMenu] Failed to initialize game:', error);
+      this.showError(`Failed to initialize game: ${error.message}`);
     }
   }
 
@@ -1647,6 +1689,79 @@ class MainMenu {
     } catch (e) {
       // Final fallback
       this.showError('Cannot quit directly. Please close the application window.');
+    }
+  }
+
+  /**
+   * Show gameplay mode selector (between menu and game initialization)
+   */
+  showGameplayModeSelector() {
+    this.currentStep = 'gameplay-mode';
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>🎮 Choose Your Gameplay Mode</h1>
+          <p>How would you like to experience your adventure?</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="gameplay-mode-grid">
+            <div class="mode-card">
+              <h2>🕹️ Manual Mode</h2>
+              <p>You control the protagonist and make all decisions. Interact with AI-powered NPCs and shape the story through your choices.</p>
+              <button class="menu-button primary large" onclick="mainMenu.startGameInMode('manual')">
+                ▶️ Play Manually
+              </button>
+            </div>
+
+            <div class="mode-card">
+              <h2>🤖 Autonomous Mode</h2>
+              <p>Watch AI characters interact with each other in emergent narratives. Perfect for enjoying the storytelling without controlling the action.</p>
+              <button class="menu-button primary large" onclick="mainMenu.startGameInMode('autonomous')">
+                ▶️ Watch AI Play
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+            ← Back to Menu
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Start game in specified mode
+   */
+  async startGameInMode(mode) {
+    console.log('[MainMenu] Starting game in', mode, 'mode');
+
+    // Hide menu
+    const menuDiv = document.getElementById('main-menu');
+    if (menuDiv) {
+      menuDiv.style.display = 'none';
+    }
+
+    // Initialize app with mode preference
+    if (typeof app !== 'undefined' && app) {
+      console.log('[MainMenu] App initializing with mode:', mode);
+
+      if (mode === 'manual') {
+        await app.showGameScreen();
+        await app.startManualMode();
+      } else if (mode === 'autonomous') {
+        await app.showGameScreen();
+        await app.startAutonomousMode();
+      }
+    } else {
+      console.error('[MainMenu] App not found');
+      this.showError('Failed to start game: App not initialized');
+      menuDiv.style.display = 'block';
     }
   }
 
