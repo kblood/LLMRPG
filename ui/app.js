@@ -362,8 +362,11 @@ class OllamaRPGApp {
     try {
       const result = await this.gameAPI.getPlayerStats();
 
+      console.log('[App] Player stats received:', result);
+
       if (result.success && result.data) {
         this.playerStats = result.data;
+        console.log('[App] Displaying player stats, name:', this.playerStats.name);
         this.displayPlayerStats(this.playerStats);
       }
     } catch (error) {
@@ -373,7 +376,10 @@ class OllamaRPGApp {
 
   displayPlayerStats(stats) {
     // Update name and level
-    document.getElementById('player-name').textContent = stats.name || 'Kael';
+    console.log('[App] displayPlayerStats called with:', stats);
+    const displayName = stats.name || 'Kael';
+    console.log('[App] Setting player name to:', displayName);
+    document.getElementById('player-name').textContent = displayName;
     document.getElementById('player-level').textContent = `Lv ${stats.level || 1}`;
 
     // Update Gold

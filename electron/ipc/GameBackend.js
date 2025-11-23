@@ -114,7 +114,10 @@ export class GameBackend {
       const playerEquipment = new Equipment();
       const playerAbilities = new AbilityManager();
 
-      this.player = new Character('player', options.playerName || 'Kael', {
+      const finalPlayerName = options.playerName || 'Kael';
+      console.log('[GameBackend] Creating player with name:', finalPlayerName, 'from options:', options.playerName);
+
+      this.player = new Character('player', finalPlayerName, {
         role: 'protagonist',
         personality: new Personality({
           friendliness: 60,
@@ -130,6 +133,8 @@ export class GameBackend {
         equipment: playerEquipment,
         abilities: playerAbilities
       });
+
+      console.log('[GameBackend] Player created with name:', this.player.name);
 
       // Create NPCs - use world config if provided, otherwise use defaults
       let npcsObject;
@@ -529,6 +534,8 @@ export class GameBackend {
     if (!this.initialized || !this.player) {
       throw new Error('Game not initialized');
     }
+
+    console.log('[GameBackend] Getting player stats for:', this.player.name);
 
     const stats = this.player.stats;
     const gold = this.player.getGold();
