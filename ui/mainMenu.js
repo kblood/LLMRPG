@@ -112,6 +112,9 @@ class MainMenu {
             <button class="menu-button secondary" onclick="mainMenu.showQuickStart()">
               ⚡ Quick Start
             </button>
+            <button class="menu-button secondary" onclick="mainMenu.showLoadTheme()">
+              📂 Load Theme
+            </button>
           </div>
 
           <div class="menu-info">
@@ -501,6 +504,9 @@ class MainMenu {
           <button class="menu-button secondary" onclick="mainMenu.showWorldGeneration()">
             ← Back
           </button>
+          <button class="menu-button secondary" onclick="mainMenu.showSaveTheme()">
+            💾 Save Theme
+          </button>
           <button class="menu-button primary" onclick="mainMenu.startGame()">
             🎮 Start Game
           </button>
@@ -664,6 +670,296 @@ class MainMenu {
       dark_fantasy: 'Survive in a grim world of dark magic and moral ambiguity. Power corrupts, but it might be necessary.'
     };
     return previews[themeKey] || 'An unknown world awaits...';
+  }
+
+  /**
+   * Show save theme screen
+   */
+  async showSaveTheme() {
+    this.currentStep = 'save-theme';
+    const menu = document.getElementById('main-menu');
+
+    if (!this.generatedWorld) {
+      this.showError('No world to save. Generate a world first.');
+      return;
+    }
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>Save Your Theme</h1>
+          <p>Save this world configuration to load later</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="generation-settings">
+            <div class="input-group">
+              <label for="save-theme-name">Theme Name:</label>
+              <input type="text" id="save-theme-name" placeholder="e.g., My Epic Adventure"
+                     value="${this.generatedWorld.gameTitle || 'My World'}" />
+            </div>
+
+            <div class="input-group">
+              <label for="save-theme-id">Theme ID (folder name):</label>
+              <input type="text" id="save-theme-id" placeholder="e.g., my-world-001"
+                     value="${this.generatedWorld.gameTitle?.toLowerCase().replace(/\s+/g, '-') || 'my-world'}" />
+            </div>
+
+            <div class="input-group">
+              <label for="save-theme-desc">Description:</label>
+              <textarea id="save-theme-desc" placeholder="Describe this world..."
+                        rows="3">${this.generatedWorld.description || ''}</textarea>
+            </div>
+
+            <div class="generation-info">
+              <p>📦 This will save all world data: NPCs, items, locations, quests, and introduction narration</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-actions">
+          <button class="menu-button secondary" onclick="mainMenu.showWorldEditor()">
+            ← Back
+          </button>
+          <button class="menu-button primary" onclick="mainMenu.saveThemeToFile()">
+            💾 Save Theme
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Save theme to file
+   */
+  async saveThemeToFile() {
+    const themeName = document.getElementById('save-theme-name').value || 'My World';
+    const themeId = document.getElementById('save-theme-id').value || 'my-world';
+    const description = document.getElementById('save-theme-desc').value || '';
+
+    if (!themeId.trim()) {
+      this.showError('Theme ID cannot be empty');
+      return;
+    }
+
+    const menu = document.getElementById('main-menu');
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>Saving Theme...</h1>
+          <p>Please wait</p>
+        </div>
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Saving theme "${themeName}" as "${themeId}"...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const themeData = {
+        theme: {
+          name: themeName,
+          description: description,
+          theme: this.config.selectedTheme
+        },
+        config: {
+          name: themeName,
+          description: description,
+          theme: this.config.selectedTheme,
+          playerName: this.generatedWorld.playerName,
+          gameTitle: this.generatedWorld.gameTitle
+        },
+        characters: this.generatedWorld.npcs || [],
+        items: this.generatedWorld.items || [],
+        locations: this.generatedWorld.locations || [],
+        introduction: {
+          playerName: this.generatedWorld.playerName,
+          gameTitle: this.generatedWorld.gameTitle,
+          openingNarration: this.generatedWorld.openingNarration || '',
+          theme: this.config.selectedTheme
+        }
+      };
+
+      const result = await this.gameAPI.saveTheme(themeId, themeData);
+
+      if (result.success) {
+        menu.innerHTML = `
+          <div class="menu-container">
+            <div class="menu-header">
+              <h1>✓ Theme Saved!</h1>
+            </div>
+
+            <div class="menu-content">
+              <div class="success-message">
+                <p>Theme "<strong>${themeName}</strong>" has been saved successfully!</p>
+                <p>You can load this theme later from the load menu.</p>
+              </div>
+            </div>
+
+            <div class="menu-actions">
+              <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+                ← Back to Menu
+              </button>
+              <button class="menu-button primary" onclick="mainMenu.startGame()">
+                🎮 Start Game
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        this.showError(`Failed to save theme: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[MainMenu] Save theme error:', error);
+      this.showError(`Save failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Show load theme screen
+   */
+  async showLoadTheme() {
+    this.currentStep = 'load-theme';
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>Load a Saved Theme</h1>
+          <p>Choose a previously saved world to play</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Loading saved themes...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const result = await this.gameAPI.listThemes();
+
+      if (!result.success || !result.themes || result.themes.length === 0) {
+        menu.innerHTML = `
+          <div class="menu-container">
+            <div class="menu-header">
+              <h1>Load Theme</h1>
+              <p>No saved themes found</p>
+            </div>
+
+            <div class="menu-content">
+              <div class="error-text">
+                No saved themes found. Create a new world and save it first!
+              </div>
+            </div>
+
+            <div class="menu-actions">
+              <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+                ← Back
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      const themesHTML = result.themes.map(theme => `
+        <div class="theme-card" onclick="mainMenu.loadThemeData('${theme.id}')">
+          <div class="theme-header">${theme.name || theme.id}</div>
+          <p class="theme-description">${theme.description || 'No description'}</p>
+          <small style="color: var(--text-muted);">Theme: ${theme.theme || 'Unknown'}</small>
+        </div>
+      `).join('');
+
+      menu.innerHTML = `
+        <div class="menu-container">
+          <div class="menu-header">
+            <h1>Load a Saved Theme</h1>
+            <p>Choose a previously saved world to play</p>
+          </div>
+
+          <div class="menu-content">
+            <div class="themes-grid">
+              ${themesHTML}
+            </div>
+          </div>
+
+          <div class="menu-actions">
+            <button class="menu-button secondary" onclick="mainMenu.showWelcome()">
+              ← Back
+            </button>
+          </div>
+        </div>
+      `;
+    } catch (error) {
+      console.error('[MainMenu] Load themes error:', error);
+      this.showError(`Failed to load themes: ${error.message}`);
+    }
+  }
+
+  /**
+   * Load theme data
+   */
+  async loadThemeData(themeId) {
+    const menu = document.getElementById('main-menu');
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>Loading Theme...</h1>
+          <p>Please wait</p>
+        </div>
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Loading theme "${themeId}"...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const result = await this.gameAPI.loadTheme(themeId);
+
+      if (result.success && result.data) {
+        const themeData = result.data;
+        const config = themeData.config || {};
+
+        // Reconstruct the world object from saved data
+        this.generatedWorld = {
+          gameTitle: config.gameTitle || themeId,
+          playerName: config.playerName || 'Kael',
+          description: config.description || '',
+          npcs: themeData.characters || [],
+          items: themeData.items || [],
+          locations: themeData.locations || [],
+          openingNarration: themeData.introduction?.openingNarration || '',
+          theme: config.theme || 'fantasy'
+        };
+
+        // Set selected theme
+        this.config.selectedTheme = this.generatedWorld.theme;
+        this.saveConfig();
+
+        // Show world editor so user can review/edit
+        this.showWorldEditor();
+      } else {
+        this.showError(`Failed to load theme: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[MainMenu] Load theme data error:', error);
+      this.showError(`Failed to load theme: ${error.message}`);
+    }
   }
 
   /**
