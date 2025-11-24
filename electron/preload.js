@@ -104,6 +104,11 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('autonomous:message');
   },
 
+  onAutonomousDialogueLine: (callback) => {
+    ipcRenderer.on('autonomous:dialogue_line', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:dialogue_line');
+  },
+
   onAutonomousConversationEnd: (callback) => {
     ipcRenderer.on('autonomous:conversation-end', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('autonomous:conversation-end');

@@ -525,6 +525,16 @@ class OllamaRPGApp {
       this.addMessageToHistory(data);
     });
 
+    // Dialogue line received (from autonomous conversations)
+    this.gameAPI.onAutonomousDialogueLine?.((data) => {
+      console.log('[App] Dialogue line from', data.speakerName, ':', data.text);
+      this.addMessageToHistory({
+        speakerName: data.speakerName,
+        speaker: data.speakerId,
+        text: data.text
+      });
+    });
+
     // Conversation ended - DON'T CLEAR the dialogue history, keep it as event log
     this.gameAPI.onAutonomousConversationEnd((data) => {
       console.log('[App] Conversation ended with', data.npcName, '-', data.turns, 'turns');
