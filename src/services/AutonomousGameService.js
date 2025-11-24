@@ -75,11 +75,6 @@ export class AutonomousGameService {
         const timeDelta = 5 + Math.floor(Math.random() * 10); // 5-15 minutes
         const timeUpdate = this.session.tick(timeDelta);
         this.onEvent('time_update', timeUpdate);
-        
-        // Advance time (traveling/thinking between actions)
-        const timeDelta = 5 + Math.floor(Math.random() * 10); // 5-15 minutes
-        const timeUpdate = this.session.tick(timeDelta);
-        this.onEvent('time_update', timeUpdate);
 
         // Log time changes to replay with game state
         if (this.replayLogger) {
