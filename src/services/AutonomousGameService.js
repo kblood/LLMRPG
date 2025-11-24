@@ -628,7 +628,7 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
       const seed = Math.abs((this.session.seed % 1000000) + conversationHistory.length);
 
       const response = await this.ollama.generate(context, {
-        model: this.session.model || 'llama3.1:8b',
+        model: this.session.model || 'granite4:3b',
         temperature: this.session.temperature || 0.8,
         seed: seed
       });

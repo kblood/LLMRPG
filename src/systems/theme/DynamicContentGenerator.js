@@ -9,9 +9,10 @@ import { Character } from '../../entities/Character.js';
 import { Personality } from '../../ai/personality/Personality.js';
 
 export class DynamicContentGenerator {
-  constructor(themeEngine, ollama = null) {
+  constructor(themeEngine, ollama = null, customInstructions = null) {
     this.themeEngine = themeEngine;
     this.ollama = ollama;
+    this.customInstructions = customInstructions;
     this.logger = console;
   }
 
@@ -338,15 +339,20 @@ Only respond with the name, nothing else. The name should fit the theme and be c
    * Generate NPC backstory via Ollama
    */
   async _generateNPCBackstory(name, archetype, profession, theme, themeContext) {
-    const prompt = `You are a master storyteller. Generate a brief, compelling backstory (2-3 sentences) for:
+    let prompt = `You are a master storyteller. Generate a brief, compelling backstory (2-3 sentences) for:
 Name: ${name}
 Archetype: ${archetype}
 Profession: ${profession}
 Theme: ${theme.name}
 Theme Tone: ${theme.settings.tone}
-Theme Atmosphere: ${theme.settings.atmosphere}
+Theme Atmosphere: ${theme.settings.atmosphere}`;
 
-Make it dramatic, mysterious, and fitting for the ${theme.name} genre. Include a hint of conflict or intrigue.`;
+    // Include custom instructions if provided
+    if (this.customInstructions) {
+      prompt += `\n\nWorld building context: ${this.customInstructions}`;
+    }
+
+    prompt += `\n\nMake it dramatic, mysterious, and fitting for the ${theme.name} genre. Include a hint of conflict or intrigue.`;
 
     return await this.ollama.generate(prompt, {
       temperature: 0.85,
@@ -371,9 +377,14 @@ Be creative and make it sound valuable and interesting. Only the description, no
    * Generate quest content via Ollama
    */
   async _generateQuestContent(questType, themeName, themeContext) {
-    const prompt = `You are a quest designer. Generate a ${themeName} quest of type: ${questType}
+    let prompt = `You are a quest designer. Generate a ${themeName} quest of type: ${questType}`;
 
-Return a JSON object with:
+    // Include custom instructions if provided
+    if (this.customInstructions) {
+      prompt += `\n\nWorld context: ${this.customInstructions}`;
+    }
+
+    prompt += `\n\nReturn a JSON object with:
 {
   "title": "Quest title (2-4 words)",
   "description": "Quest description (2-3 sentences)",
@@ -403,10 +414,15 @@ Make it thematic, engaging, and challenging. Only return the JSON, no other text
    */
   async _generateMainQuestNarrative(themeName, themeContext, player) {
     const playerName = player?.name || 'Adventurer';
-    const prompt = `You are the Chronicler, the Game Master of a ${themeName} world.
-Generate the MAIN QUEST that will define ${playerName}'s destiny.
+    let prompt = `You are the Chronicler, the Game Master of a ${themeName} world.
+Generate the MAIN QUEST that will define ${playerName}'s destiny.`;
 
-Return a JSON object with:
+    // Include custom instructions if provided
+    if (this.customInstructions) {
+      prompt += `\n\nWorld building directive: ${this.customInstructions}`;
+    }
+
+    prompt += `\n\nReturn a JSON object with:
 {
   "title": "Epic main quest title",
   "description": "Quest description (3-4 sentences)",
@@ -453,9 +469,14 @@ Theme tone: ${themeContext.tone}`;
    * Generate location content via Ollama
    */
   async _generateLocationContent(locationType, atmosphere, themeName) {
-    const prompt = `Generate a ${themeName} location of type: ${locationType} with atmosphere: ${atmosphere}
+    let prompt = `Generate a ${themeName} location of type: ${locationType} with atmosphere: ${atmosphere}`;
 
-Return a JSON object with:
+    // Include custom instructions if provided
+    if (this.customInstructions) {
+      prompt += `\n\nWorld building instructions: ${this.customInstructions}`;
+    }
+
+    prompt += `\n\nReturn a JSON object with:
 {
   "name": "Location name",
   "description": "Location description (2-3 sentences)"

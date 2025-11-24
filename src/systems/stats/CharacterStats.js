@@ -372,6 +372,38 @@ export class CharacterStats {
   }
 
   /**
+   * Get maximum health
+   * @returns {number}
+   */
+  getMaxHealth() {
+    return this.maxHP;
+  }
+
+  /**
+   * Get maximum stamina
+   * @returns {number}
+   */
+  getMaxStamina() {
+    return this.maxStamina;
+  }
+
+  /**
+   * Get current health
+   * @returns {number}
+   */
+  getHealth() {
+    return this.currentHP;
+  }
+
+  /**
+   * Get defense value (alias for getDefenseBonus)
+   * @returns {number}
+   */
+  getDefense() {
+    return this.getDefenseBonus();
+  }
+
+  /**
    * Full rest - restore all resources
    */
   rest() {

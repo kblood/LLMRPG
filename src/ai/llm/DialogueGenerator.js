@@ -17,7 +17,7 @@ export class DialogueGenerator {
     this.promptBuilder = options.promptBuilder || new PromptBuilder();
     this.responseParser = options.responseParser || new ResponseParser();
     
-    this.defaultModel = options.model || 'llama3.1:8b';
+    this.defaultModel = options.model || 'granite4:3b';
     this.defaultTemperature = options.temperature || 0.8;
   }
 

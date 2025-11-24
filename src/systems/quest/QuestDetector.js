@@ -7,7 +7,7 @@ import { OllamaService } from '../../services/OllamaService.js';
 export class QuestDetector {
   constructor(options = {}) {
     this.ollama = OllamaService.getInstance();
-    this.model = options.model || 'llama3.1:8b';
+    this.model = options.model || 'granite4:3b';
     this.seedManager = options.seedManager;
     this.detectionPatterns = this.initializePatterns();
   }

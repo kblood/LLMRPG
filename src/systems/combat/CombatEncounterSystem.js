@@ -4,6 +4,7 @@ import { Personality } from '../../ai/personality/Personality.js';
 import { CombatAI } from './CombatAI.js';
 import { Equipment } from '../items/Equipment.js';
 import { AbilityManager } from '../abilities/AbilityManager.js';
+import { Ability } from '../abilities/Ability.js';
 import { getRandomEnemyByDanger, getEnemyData, calculateEnemyCount } from '../../data/enemy-types.js';
 import Logger from '../../utils/Logger.js';
 
@@ -100,10 +101,19 @@ export class CombatEncounterSystem {
     const enemies = [];
 
     for (let i = 0; i < enemyCount; i++) {
-      const enemy = this._generateEnemy(dangerLevel, playerLevel);
-      if (enemy) {
-        enemies.push(enemy);
-        this.session.enemies.set(enemy.id, enemy);
+      try {
+        const enemy = this._generateEnemy(dangerLevel, playerLevel);
+        if (enemy) {
+          enemies.push(enemy);
+          if (this.session && this.session.enemies) {
+            this.session.enemies.set(enemy.id, enemy);
+          }
+          this.logger.info(`Generated enemy: ${enemy.name} (Level ${enemy.stats.level})`);
+        } else {
+          this.logger.warn('Failed to generate enemy (returned null)');
+        }
+      } catch (error) {
+        this.logger.error(`Error generating enemy: ${error.message}`);
       }
     }
 
@@ -118,10 +128,8 @@ export class CombatEncounterSystem {
    * @returns {Object|null} Combat encounter data or null if no encounter
    */
   generateCombatEncounter(protagonist, location, timeOfDay) {
-    // Check if enemy should spawn
-    if (!this.shouldSpawnEnemy(location, timeOfDay)) {
-      return null;
-    }
+    // Note: shouldSpawnEnemy() should have already been checked by the caller
+    // We don't check again here to avoid double randomness
 
     const dangerLevel = location.dangerLevel || location.danger_level || 'low';
     const playerLevel = protagonist.stats?.level || 1;
@@ -197,10 +205,22 @@ export class CombatEncounterSystem {
     }
 
     // Create abilities
-    const abilities = new AbilityManager();
+    const abilities = new AbilityManager(uniqueId);
     if (enemyTemplate.abilities && enemyTemplate.abilities.length > 0) {
       enemyTemplate.abilities.forEach(abilityData => {
-        abilities.addAbility(abilityData);
+        // Create Ability object from data
+        const ability = new Ability({
+          id: abilityData.id || abilityData.name?.toLowerCase().replace(/\s+/g, '_'),
+          name: abilityData.name,
+          description: abilityData.description || '',
+          type: abilityData.type || 'active',
+          category: abilityData.category || 'combat',
+          cooldown: abilityData.cooldown || 0,
+          mpCost: abilityData.mpCost || abilityData.cost || 0,
+          effect: abilityData.effect || {},
+          learnable: false // Enemies don't "learn" abilities
+        });
+        abilities.learnAbility(ability);
       });
     }
 

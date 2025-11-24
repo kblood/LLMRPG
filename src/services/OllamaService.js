@@ -15,7 +15,7 @@ export class OllamaService {
    */
   constructor(config = {}) {
     this.baseUrl = config.baseUrl || 'http://localhost:11434';
-    this.defaultModel = config.defaultModel || 'llama3.1:8b';
+    this.defaultModel = config.defaultModel || 'granite4:3b';
     this.defaultTemperature = config.defaultTemperature || 0.7;
     this.timeout = config.timeout || 120000; // 120 seconds
     

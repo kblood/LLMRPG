@@ -20,26 +20,26 @@ export class GameSession {
     
     this.dialogueSystem = new DialogueSystem({
       seedManager: this.seedManager,
-      model: options.model || 'llama3.1:8b',
+      model: options.model || 'granite4:3b',
       temperature: options.temperature || 0.8,
       timeout: options.timeout || 60000
     });
-    
+
     this.conversationManager = new ConversationManager({
       seedManager: this.seedManager,
-      model: options.model || 'llama3.1:8b',
+      model: options.model || 'granite4:3b',
       temperature: options.temperature || 0.8,
       timeout: options.timeout || 60000
     });
-    
+
     this.questManager = new QuestManager();
     this.questGenerator = new QuestGenerator({
-      model: options.model || 'llama3.1:8b',
+      model: options.model || 'granite4:3b',
       temperature: 0.7,
       seedManager: this.seedManager
     });
     this.questDetector = new QuestDetector({
-      model: options.model || 'llama3.1:8b',
+      model: options.model || 'granite4:3b',
       seedManager: this.seedManager
     });
     this.questContextBuilder = new QuestContextBuilder(this.questManager);
@@ -525,6 +525,12 @@ export class GameSession {
    * @private
    */
   _calculateDangerLevel(location) {
+    // If dangerLevel is explicitly provided, use it
+    if (location.dangerLevel) {
+      return location.dangerLevel;
+    }
+    
+    // Otherwise, calculate from environment and tags
     if (location.environment?.safe) return 'safe';
     if (location.tags?.includes('dungeon')) return 'high';
     if (location.tags?.includes('ruins')) return 'medium';

@@ -24,7 +24,7 @@ export class ThemedWorldGenerator {
 
   /**
    * Generate a complete themed world with dynamic content
-   * 
+   *
    * @param {Object} config - World generation configuration
    * @param {string} config.theme - Theme name (fantasy, sci-fi, cthulhu, steampunk, dark_fantasy)
    * @param {string} config.playerName - Player character name
@@ -33,6 +33,7 @@ export class ThemedWorldGenerator {
    * @param {number} config.itemCount - Number of items to generate
    * @param {number} config.locationCount - Number of locations to generate
    * @param {string} config.worldTitle - Title of the world
+   * @param {string} config.customInstructions - Custom instructions for world generation
    * @returns {Promise<Object>} Generated world configuration
    */
   async generateThemedWorld(config = {}) {
@@ -40,7 +41,7 @@ export class ThemedWorldGenerator {
 
     // Initialize theme system
     const themeEngine = new ThemeEngine();
-    const contentGenerator = new DynamicContentGenerator(themeEngine, this.ollama);
+    const contentGenerator = new DynamicContentGenerator(themeEngine, this.ollama, config.customInstructions);
 
     // Set theme
     const selectedTheme = config.theme || 'fantasy';

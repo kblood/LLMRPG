@@ -6,7 +6,7 @@ import { OllamaService } from '../../services/OllamaService.js';
 export class QuestGenerator {
   constructor(options = {}) {
     this.ollama = OllamaService.getInstance();
-    this.model = options.model || 'llama3.1:8b';
+    this.model = options.model || 'granite4:3b';
     this.temperature = options.temperature || 0.7;
     this.seedManager = options.seedManager;
   }

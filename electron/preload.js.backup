@@ -1,82 +1,40 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-console.log('[Preload] Starting preload script (Integrated Architecture)...');
+console.log('[Preload] Starting preload script...');
 
 // Expose protected methods that allow the renderer process to use
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('gameAPI', {
-  // ============================================================================
-  // GAME INITIALIZATION & STATUS
-  // ============================================================================
-  
+  // Initialize game
   init: (options) => ipcRenderer.invoke('game:init', options),
-  getStatus: () => ipcRenderer.invoke('game:getStatus'),
-  getState: () => ipcRenderer.invoke('game:getState'),
-  checkOllama: () => ipcRenderer.invoke('game:checkOllama'),
 
-  // ============================================================================
-  // CHARACTERS
-  // ============================================================================
-  
+  // NPC operations
   getNPCs: () => ipcRenderer.invoke('game:getNPCs'),
-  getProtagonist: () => ipcRenderer.invoke('game:getProtagonist'),
 
-  // ============================================================================
-  // CONVERSATIONS
-  // ============================================================================
-  
-  startConversation: (npcId, options) => ipcRenderer.invoke('game:startConversation', npcId, options),
-  sendMessage: (conversationId, text, options) => ipcRenderer.invoke('game:sendMessage', conversationId, text, options),
+  // Conversation operations
+  startConversation: (npcId) => ipcRenderer.invoke('game:startConversation', npcId),
+  sendMessage: (conversationId, message) => ipcRenderer.invoke('game:sendMessage', { conversationId, message }),
   endConversation: (conversationId) => ipcRenderer.invoke('game:endConversation', conversationId),
 
-  // ============================================================================
-  // ACTIONS & TIME
-  // ============================================================================
-  
-  executeAction: (action) => ipcRenderer.invoke('game:executeAction', action),
-  tick: (minutes) => ipcRenderer.invoke('game:tick', minutes),
+  // Game state
+  getStats: () => ipcRenderer.invoke('game:getStats'),
+  getQuests: () => ipcRenderer.invoke('game:getQuests'),
+  getPlayerStats: () => ipcRenderer.invoke('game:getPlayerStats'),
 
-  // ============================================================================
-  // AUTONOMOUS MODE
-  // ============================================================================
-  
-  startAutonomous: (options) => ipcRenderer.invoke('game:startAutonomous', options),
+  // System
+  checkOllama: () => ipcRenderer.invoke('game:checkOllama'),
+
+  // Autonomous mode
+  startAutonomous: () => ipcRenderer.invoke('game:startAutonomous'),
   stopAutonomous: () => ipcRenderer.invoke('game:stopAutonomous'),
   pauseAutonomous: () => ipcRenderer.invoke('game:pauseAutonomous'),
   resumeAutonomous: () => ipcRenderer.invoke('game:resumeAutonomous'),
-  getAutonomousStatus: () => ipcRenderer.invoke('game:getAutonomousStatus'),
 
-  // ============================================================================
-  // REPLAY SYSTEM
-  // ============================================================================
-  
-  saveReplay: (filename) => ipcRenderer.invoke('game:saveReplay', filename),
+  // Replay operations
+  listReplays: () => ipcRenderer.invoke('replay:list'),
+  loadReplay: (filename) => ipcRenderer.invoke('replay:load', filename),
 
-  // ============================================================================
-  // THEME PERSISTENCE
-  // ============================================================================
-  
-  loadTheme: () => ipcRenderer.invoke('theme:load'),
-  saveTheme: (theme) => ipcRenderer.invoke('theme:save', theme),
-
-  // ============================================================================
-  // EVENT LISTENERS - STATE UPDATES
-  // ============================================================================
-  
-  /**
-   * Listen for game state updates
-   * Called whenever the game state changes
-   */
-  onGameUpdate: (callback) => {
-    const handler = (event, update) => callback(update);
-    ipcRenderer.on('game:update', handler);
-    return () => ipcRenderer.removeListener('game:update', handler);
-  },
-
-  // ============================================================================
-  // LEGACY EVENT LISTENERS (For backward compatibility)
-  // ============================================================================
-  
+  // Event listeners
   onGameEvent: (callback) => {
     ipcRenderer.on('game:event', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('game:event');
@@ -92,6 +50,7 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('game:time-update');
   },
 
+  // Autonomous mode event listeners
   onWorldGenerated: (callback) => {
     ipcRenderer.on('autonomous:world-generated', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('autonomous:world-generated');
@@ -172,10 +131,23 @@ contextBridge.exposeInMainWorld('gameAPI', {
     return () => ipcRenderer.removeAllListeners('game:victory');
   },
 
+  // Replay event listeners
   onReplaySaved: (callback) => {
     ipcRenderer.on('replay:saved', (event, data) => callback(data));
     return () => ipcRenderer.removeAllListeners('replay:saved');
-  }
+  },
+
+  // Theme and LLM management
+  getAvailableModels: () => ipcRenderer.invoke('game:getAvailableModels'),
+  getAvailableThemes: () => ipcRenderer.invoke('game:getAvailableThemes'),
+  generateThemedWorld: (config) => ipcRenderer.invoke('game:generateThemedWorld', config),
+
+  // Theme persistence
+  saveTheme: (themeId, themeData) => ipcRenderer.invoke('theme:save', themeId, themeData),
+  loadTheme: (themeId) => ipcRenderer.invoke('theme:load', themeId),
+  listThemes: () => ipcRenderer.invoke('theme:list'),
+  deleteTheme: (themeId) => ipcRenderer.invoke('theme:delete', themeId),
+  themeExists: (themeId) => ipcRenderer.invoke('theme:exists', themeId)
 });
 
-console.log('[Preload] Game API exposed to renderer (Integrated Architecture)');
+console.log('[Preload] Game API exposed to renderer');

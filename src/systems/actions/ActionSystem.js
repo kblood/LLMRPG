@@ -64,7 +64,7 @@ export class ActionSystem {
 
     try {
       const response = await this.ollama.generate(context, {
-        model: this.session.model || 'llama3.1:8b',
+        model: this.session.model || 'granite4:3b',
         temperature: 0.8,
         seed: this._getSeed()
       });
@@ -151,13 +151,22 @@ export class ActionSystem {
     const world = this.session.world;
     const recentActions = this.actionHistory.slice(-5);
 
-    // Count consecutive conversation actions
+    // Count consecutive actions of each type
     let consecutiveConversations = 0;
+    let lastActionType = null;
+    let consecutiveCount = 0;
+
     for (let i = this.actionHistory.length - 1; i >= 0; i--) {
       if (this.actionHistory[i].type === ActionType.CONVERSATION) {
         consecutiveConversations++;
+      }
+
+      // Track consecutive same actions
+      if (this.actionHistory[i].type === lastActionType) {
+        consecutiveCount++;
       } else {
-        break;
+        lastActionType = this.actionHistory[i].type;
+        consecutiveCount = 1;
       }
     }
 
@@ -214,6 +223,12 @@ ${availableDestinations}
       ? recentActions.map(a => `${a.type}`).join(', ')
       : 'none';
 
+    // Build warning if too many consecutive same actions
+    let actionWarning = '';
+    if (consecutiveCount >= this.config.maxConsecutiveSameAction) {
+      actionWarning = `\n⚠️ WARNING: You've done ${lastActionType} ${consecutiveCount} times in a row. Try a different action!`;
+    }
+
     // Build prompt
     const prompt = `You are ${protagonist.name}, ${protagonist.backstory}
 
@@ -223,7 +238,7 @@ ${protagonist.personality.toDetailedDescription()}
 Current Situation:
 - Time: ${gameTime} (${timeOfDay})
 - Location: ${this.session.currentLocation ? (this.session.getLocation(this.session.currentLocation)?.name || 'Millhaven') : 'Millhaven'}
-- Recent actions: ${recentActionsText}
+- Recent actions: ${recentActionsText}${actionWarning}
 
 ${questContext}
 ${worldContext}
@@ -257,19 +272,21 @@ What do you want to do next? Choose ONE action:
 
 Guidelines:
 - CONVERSATION: Good if you haven't talked to all available NPCs yet
-- INVESTIGATE/SEARCH: Explore for clues and items related to your quest
-- TRAVEL: Explore other locations to advance your quest
+- INVESTIGATE: Search THIS location thoroughly, but don't search the same place repeatedly
+- SEARCH: Look for items, but move on to TRAVEL if you've searched here already
+- TRAVEL: Move to a new location when you've exhausted current location activities
 - REST: If health or stamina is low, or if it's late at night
-- Vary your actions! Don't just keep talking - also explore, travel, and search
+- VARY YOUR ACTIONS! Mix conversations, investigation, travel, and rest throughout your adventure
 
 ${consecutiveConversations >= 3 ? 'IMPORTANT: You have talked to many NPCs in a row. Time for something else! Choose TRAVEL, INVESTIGATE, or SEARCH instead.' : ''}
 ${consecutiveConversations >= 5 ? 'CRITICAL: You have had many consecutive conversations. You MUST do something different now. Choose TRAVEL, INVESTIGATE, SEARCH, or REST!' : ''}
+${consecutiveCount >= 2 && lastActionType !== 'conversation' ? `ATTENTION: You have done ${lastActionType} multiple times. Try a DIFFERENT action type - perhaps TRAVEL, CONVERSATION, or REST!` : ''}
 
-Respond with ONLY the action type and a brief reason (1 sentence):
+Your response should include ONLY the action type and a brief reason (1 sentence):
 Format: ACTION_TYPE: reason
 
 Example responses:
-CONVERSATION: I want to speak with the blacksmith to learn about local rumors
+CONVERSATION: I want to speak to the blacksmith and learn about local rumors
 INVESTIGATE: I should explore this area to look for quest-related clues
 SEARCH: I want to search for useful items or hidden objects
 REST: It's late and I should rest to recover my energy
