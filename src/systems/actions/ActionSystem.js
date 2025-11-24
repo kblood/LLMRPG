@@ -183,12 +183,12 @@ ${activeQuests[0].objectives ? `Current Objectives: ${activeQuests[0].objectives
 ` : 'You have no active quests yet.';
 
     // Build world context with discovered locations
-    let discoveredLocations = 'Millhaven';
+    let discoveredLocations = 'starting location';
     let availableDestinations = '';
 
     if (this.session.discoveredLocations && this.session.discoveredLocations.size > 0) {
       const discovered = this.session.getDiscoveredLocations();
-      discoveredLocations = discovered.map(loc => loc.name).join(', ') || 'Millhaven';
+      discoveredLocations = discovered.map(loc => loc.name).join(', ') || 'starting location';
 
       // Show available travel destinations
       const travelableLocations = discovered.filter(loc => loc.id !== this.session.currentLocation);
@@ -228,13 +228,13 @@ Current Situation:
 ${questContext}
 ${worldContext}
 
-NPCs in Millhaven:
+NPCs in the current location:
 ${npcContext}
 
 NPCs you've already talked to recently: ${talkedToNPCs}
 
 Your Goals:
-${goals.map(g => `- ${g.content}`).join('\n') || '- Explore Millhaven and meet people'}
+${goals.map(g => `- ${g.content}`).join('\n') || '- Explore and meet people'}
 
 You have completed ${consecutiveConversations} conversation(s) in a row.
 
@@ -243,36 +243,37 @@ What do you want to do next? Choose ONE action:
 1. CONVERSATION - Talk to an NPC (if available)
    ${availableNPCs.filter(npc => !pastConversations.includes(npc.id)).length === 0 ? '   (No new NPCs available - you\'ve talked to everyone)' : ''}
 
-2. INVESTIGATE - Examine your surroundings, look for clues about the quest, or explore the village
-   (Look around the village, examine interesting locations, search for quest clues)
+2. INVESTIGATE - Examine your surroundings, look for clues about the quest, or explore the area
+   (Look around, examine interesting locations, search for quest clues)
 
 3. SEARCH - Actively search for items, resources, or hidden things
    (Search the area for useful items or hidden objects)
 
-4. REST - Find a quiet place to rest and recover (if tired)
+4. REST - Find a quiet place to rest and recover
    (Recover health, stamina, and organize your thoughts)
 
-5. TRAVEL - Consider traveling to a nearby location
-   (Only if you have a specific destination in mind based on quest or knowledge)
+5. TRAVEL - Travel to a nearby location
+   (Visit other locations to explore, gather information, or investigate)${availableDestinations}
 
 Guidelines:
-- If you haven't talked to all NPCs yet, CONVERSATION is usually a good choice
-- If you've talked to many NPCs, consider INVESTIGATE to explore or search for quest clues
-- If it's late at night, REST might be appropriate
-- Only choose TRAVEL if you have a clear destination related to your quest
-- Vary your actions to make your journey interesting
+- CONVERSATION: Good if you haven't talked to all available NPCs yet
+- INVESTIGATE/SEARCH: Explore for clues and items related to your quest
+- TRAVEL: Explore other locations to advance your quest
+- REST: If health or stamina is low, or if it's late at night
+- Vary your actions! Don't just keep talking - also explore, travel, and search
 
-${consecutiveConversations >= 3 ? 'IMPORTANT: You have talked to many NPCs recently. Consider doing something else like INVESTIGATE the village or SEARCH for clues.' : ''}
+${consecutiveConversations >= 3 ? 'IMPORTANT: You have talked to many NPCs in a row. Time for something else! Choose TRAVEL, INVESTIGATE, or SEARCH instead.' : ''}
+${consecutiveConversations >= 5 ? 'CRITICAL: You have had many consecutive conversations. You MUST do something different now. Choose TRAVEL, INVESTIGATE, SEARCH, or REST!' : ''}
 
 Respond with ONLY the action type and a brief reason (1 sentence):
 Format: ACTION_TYPE: reason
 
 Example responses:
 CONVERSATION: I want to speak with the blacksmith to learn about local rumors
-INVESTIGATE: I should explore the village square to look for quest-related clues
-SEARCH: I want to search the area for useful items or hidden objects
+INVESTIGATE: I should explore this area to look for quest-related clues
+SEARCH: I want to search for useful items or hidden objects
 REST: It's late and I should rest to recover my energy
-TRAVEL: I need to journey to the Thornwood to investigate the rumors
+TRAVEL: I need to journey to the distant ruins to investigate the legends
 
 Your decision:`;
 

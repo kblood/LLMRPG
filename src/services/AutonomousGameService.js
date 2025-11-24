@@ -195,7 +195,7 @@ export class AutonomousGameService {
 
     // Get player's current location for context
     const playerLocation = this.locationGrid ? this.locationGrid.getPosition(this.player.id) : null;
-    const playerLocationName = this.session.world?.startingTown?.name || 'Village';
+    const playerLocationName = this.session.getLocation(this.session.currentLocation)?.name || 'current location';
 
     // Notify of NPC choice
     this.onEvent('npc_chosen', {
@@ -462,6 +462,12 @@ export class AutonomousGameService {
       // Run conversation turns
       for (let turn = 0; turn < this.autonomousConfig.maxTurnsPerConversation; turn++) {
         if (!this.isRunning) break;
+        
+        // Check if paused
+        while (this.isPaused && this.isRunning) {
+          await this._sleep(500);
+        }
+        if (!this.isRunning) break;
 
         // Protagonist decides response
         const protagonistResponse = await this._protagonistDecideResponse(
@@ -502,6 +508,12 @@ export class AutonomousGameService {
 
         await this._sleep(this.autonomousConfig.pauseBetweenTurns);
 
+        if (!this.isRunning) break;
+        
+        // Check if paused
+        while (this.isPaused && this.isRunning) {
+          await this._sleep(500);
+        }
         if (!this.isRunning) break;
 
         // Log NPC response

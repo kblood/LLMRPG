@@ -785,8 +785,13 @@ export class GameBackend {
       autonomousConfig: this.autonomousConfig,
       mainQuest: this.mainQuest,
       onEvent: (event, data) => {
-        // Forward all service events to UI
-        this._sendToUI(`autonomous:${event}`, data);
+        // Special handling for time_update - send as game:time-update instead of autonomous:time_update
+        if (event === 'time_update') {
+          this._sendToUI('game:time-update', data);
+        } else {
+          // Forward all other service events to UI
+          this._sendToUI(`autonomous:${event}`, data);
+        }
         
         // Stop service if autonomous mode is turned off
         if (!this.autonomousMode && this.autonomousService) {
