@@ -72,8 +72,8 @@ contextBridge.exposeInMainWorld('gameAPI', {
   },
 
   onAutonomousActionDecision: (callback) => {
-    ipcRenderer.on('autonomous:action-decision', (event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners('autonomous:action-decision');
+    ipcRenderer.on('autonomous:action_decision', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:action_decision');
   },
 
   onAutonomousAction: (callback) => {
@@ -82,23 +82,23 @@ contextBridge.exposeInMainWorld('gameAPI', {
   },
 
   onAutonomousActionResult: (callback) => {
-    ipcRenderer.on('autonomous:action-result', (event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners('autonomous:action-result');
+    ipcRenderer.on('autonomous:action_result', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:action_result');
   },
 
   onAutonomousCombatEncounter: (callback) => {
-    ipcRenderer.on('autonomous:combat-encounter', (event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners('autonomous:combat-encounter');
+    ipcRenderer.on('autonomous:combat_encounter', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:combat_encounter');
   },
 
   onAutonomousCombatResult: (callback) => {
-    ipcRenderer.on('autonomous:combat-result', (event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners('autonomous:combat-result');
+    ipcRenderer.on('autonomous:combat_result', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:combat_result');
   },
 
   onAutonomousConversationStart: (callback) => {
-    ipcRenderer.on('autonomous:conversation-start', (event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners('autonomous:conversation-start');
+    ipcRenderer.on('autonomous:conversation_start', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:conversation_start');
   },
 
   onAutonomousMessage: (callback) => {
@@ -112,8 +112,8 @@ contextBridge.exposeInMainWorld('gameAPI', {
   },
 
   onAutonomousConversationEnd: (callback) => {
-    ipcRenderer.on('autonomous:conversation-end', (event, data) => callback(data));
-    return () => ipcRenderer.removeAllListeners('autonomous:conversation-end');
+    ipcRenderer.on('autonomous:conversation_end', (event, data) => callback(data));
+    return () => ipcRenderer.removeAllListeners('autonomous:conversation_end');
   },
 
   onAutonomousError: (callback) => {
