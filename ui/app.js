@@ -584,6 +584,10 @@ class OllamaRPGApp {
         document.getElementById('stop-autonomous-btn').classList.remove('hidden');
 
         document.getElementById('mode-status').textContent = 'Running';
+        
+        // Load player stats
+        await this.updatePlayerStats();
+
         this.setStatus('Autonomous mode started - AI characters are interacting...');
       } else {
         alert(`Failed to start autonomous mode: ${result.error}`);
