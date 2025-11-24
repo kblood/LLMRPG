@@ -14,8 +14,21 @@ class MainMenu {
     this.init();
   }
 
-  init() {
+  async init() {
     console.log('[MainMenu] Initializing main menu system');
+
+    // Try to load the default theme from saved config
+    const savedWorldConfig = localStorage.getItem('game_world_config');
+    if (savedWorldConfig) {
+      try {
+        this.generatedWorld = JSON.parse(savedWorldConfig);
+        console.log('[MainMenu] Loaded saved world config with', this.generatedWorld.npcs?.length || 0, 'NPCs');
+      } catch (e) {
+        console.warn('[MainMenu] Could not parse saved world config:', e);
+        this.generatedWorld = null;
+      }
+    }
+
     this.setupEventListeners();
     this.loadAvailableModels();
   }

@@ -55,6 +55,9 @@ export class DialogueContextBuilder {
       // Quest context
       quests: this._buildQuestContext(npc),
 
+      // Gossip and reputation context
+      gossip: this._buildGossipContext(npc, player, options),
+
       // World state
       worldState: this.world.worldState || {},
 
@@ -250,6 +253,56 @@ export class DialogueContextBuilder {
   }
 
   /**
+   * Build gossip and reputation context
+   * @private
+   */
+  _buildGossipContext(npc, player, options) {
+    const context = {
+      hasGossip: false,
+      recentGossip: [],
+      opinion: null,
+      reputation: null
+    };
+
+    // Get gossip network from options or world
+    const gossipNetwork = options.gossipNetwork || this.world.gossipNetwork;
+    if (!gossipNetwork) {
+      return context;
+    }
+
+    // Get recent gossip NPC knows
+    const recentGossip = gossipNetwork.getRecentGossip(npc.id, 3);
+    if (recentGossip.length > 0) {
+      context.hasGossip = true;
+      context.recentGossip = recentGossip.map(g => ({
+        description: g.description,
+        type: g.type,
+        importance: g.importance,
+        age: Math.floor((Date.now() - g.timestamp) / 60000) // minutes ago
+      }));
+    }
+
+    // Get reputation system from options or world
+    const reputationSystem = options.reputationSystem || this.world.reputationSystem;
+    if (reputationSystem) {
+      const opinion = reputationSystem.getOpinion(npc.id, player.id);
+      if (opinion.overall !== 0 || opinion.reasons.length > 0) {
+        context.opinion = {
+          overall: opinion.overall,
+          traits: opinion.traits,
+          reasons: opinion.reasons.slice(-2).map(r => r.reason), // Last 2 reasons
+          dominantTrait: reputationSystem.getDominantTrait(npc.id, player.id)
+        };
+      }
+
+      // Get overall reputation
+      context.reputation = gossipNetwork.getReputation(player.id);
+    }
+
+    return context;
+  }
+
+  /**
    * Get relationship description from level
    * @private
    */
@@ -442,6 +495,54 @@ export class DialogueContextBuilder {
             parts.push(`  Current objectives: ${quest.currentObjectives.join('; ')}`);
           }
         });
+    }
+
+    // Gossip and Reputation
+    if (context.gossip && context.gossip.hasGossip) {
+      parts.push('\n--- Recent Gossip You\'ve Heard ---');
+      context.gossip.recentGossip.forEach(g => {
+        parts.push(`- (${g.age} minutes ago) ${g.description}`);
+      });
+    }
+
+    // Opinion of the player
+    if (context.gossip && context.gossip.opinion) {
+      parts.push(`\n--- Your Opinion of ${context.player.name} ---`);
+      const op = context.gossip.opinion;
+      
+      if (op.overall > 20) {
+        parts.push(`You think positively of them (${op.overall}/100).`);
+      } else if (op.overall < -20) {
+        parts.push(`You think negatively of them (${op.overall}/100).`);
+      } else {
+        parts.push(`You have a neutral opinion of them (${op.overall}/100).`);
+      }
+
+      if (op.dominantTrait && op.dominantTrait !== 'unknown') {
+        parts.push(`You believe they are: ${op.dominantTrait}`);
+      }
+
+      if (op.reasons && op.reasons.length > 0) {
+        parts.push('This is based on:');
+        op.reasons.forEach(reason => {
+          parts.push(`- They ${reason}`);
+        });
+      }
+    }
+
+    // Player's reputation
+    if (context.gossip && context.gossip.reputation) {
+      const rep = context.gossip.reputation;
+      const repItems = [];
+      
+      if (rep.hero > 20) repItems.push('known for helping others');
+      if (rep.fighter > 20) repItems.push('reputed as a fighter');
+      if (rep.social > 20) repItems.push('well-connected socially');
+      if (rep.explorer > 20) repItems.push('known as an explorer');
+      
+      if (repItems.length > 0) {
+        parts.push(`\nWhat people say about ${context.player.name}: ${repItems.join(', ')}`);
+      }
     }
 
     // Relationship

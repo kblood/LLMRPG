@@ -18,6 +18,8 @@ Unlike traditional RPGs where you control the character, in OllamaRPG you **obse
 - **Memory**: Characters remember conversations and events with time-based decay
 - **Relationships**: Dynamic relationship tracking (-100 to +100 scale)
 - **Schedules**: NPCs follow daily routines (work, rest, socialize)
+- **Gossip Network** ✨ NEW!: NPCs share information through social networks
+- **Reputation System** ✨ NEW!: Actions have lasting consequences, personality-filtered opinions
 
 ### Game Master / Dungeon Master ✨ NEW!
 - **AI Narrator**: "The Chronicler" provides atmospheric narration using LLM

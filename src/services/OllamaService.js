@@ -1,3 +1,5 @@
+import { FallbackLogger } from './FallbackLogger.js';
+
 /**
  * Ollama LLM Service
  * Manages connection to Ollama API with deterministic seeded generation
@@ -20,6 +22,9 @@ export class OllamaService {
     // Response cache for replay determinism
     this.responseCache = new Map();
     this.cacheEnabled = config.cacheEnabled !== false;
+    
+    // Fallback logger
+    this.fallbackLogger = FallbackLogger.getInstance();
     
     // Statistics
     this.stats = {
@@ -174,14 +179,35 @@ export class OllamaService {
     } catch (error) {
       this.stats.errors++;
       
+      // Determine reason for fallback
+      let reason = 'LLM_ERROR';
       if (error.name === 'AbortError') {
-        throw new Error('Ollama request timed out');
+        reason = 'LLM_TIMEOUT';
+      } else if (error.message.includes('ECONNREFUSED') || error.message.includes('fetch')) {
+        reason = 'LLM_UNAVAILABLE';
       }
 
       console.error('Error generating with Ollama:', error);
       
-      // Return fallback response
-      return this.getFallbackResponse(options.fallback);
+      // Get fallback response
+      const fallbackResponse = this.getFallbackResponse(options.fallback);
+      
+      // Log fallback usage
+      this.fallbackLogger.logFallback({
+        system: 'OllamaService',
+        operation: 'generate',
+        reason: reason,
+        fallbackValue: fallbackResponse,
+        context: {
+          model: model,
+          temperature: temperature,
+          promptLength: prompt.length,
+          hasSeed: seed !== undefined
+        },
+        error: error
+      });
+      
+      return fallbackResponse;
     }
   }
 

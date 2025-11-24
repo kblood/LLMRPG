@@ -24,6 +24,8 @@ import { OllamaService } from './src/services/OllamaService.js';
 import { EventBus } from './src/services/EventBus.js';
 import { ReplayLogger } from './src/replay/ReplayLogger.js';
 import { DialogueGenerator } from './src/ai/llm/DialogueGenerator.js';
+import { FallbackLogger } from './src/services/FallbackLogger.js';
+import { FallbackReplayIntegration } from './src/services/FallbackReplayIntegration.js';
 import { createAllNPCs } from './src/data/npc-roster.js';
 import fs from 'fs';
 import path from 'path';
@@ -49,6 +51,10 @@ const ollama = OllamaService.getInstance();
 const eventBus = EventBus.getInstance();
 const replayLogger = new ReplayLogger(CONFIG.gameSeed);
 const gameMaster = new GameMaster(ollama, eventBus);
+const fallbackLogger = FallbackLogger.getInstance();
+
+// Initialize fallback replay integration
+FallbackReplayIntegration.initialize(replayLogger);
 
 // Game session
 const session = new GameSession({
@@ -468,6 +474,31 @@ async function runTest() {
     console.log(chalk.white('  Events logged: ') + chalk.gray(replayLogger.getEventCount()));
     console.log(chalk.white('  LLM calls logged: ') + chalk.gray(replayLogger.getLLMCallCount()));
     console.log(chalk.white('  Checkpoints: ') + chalk.gray(replayLogger.getCheckpointCount()));
+
+    // Fallback statistics
+    const fallbackStats = fallbackLogger.getStats();
+    console.log(chalk.yellow('\nFallback Statistics:\n'));
+    console.log(chalk.white('  Total fallbacks: ') + 
+                (fallbackStats.total > 0 ? chalk.red(fallbackStats.total) : chalk.green(fallbackStats.total)));
+    
+    if (fallbackStats.total > 0) {
+      console.log(chalk.red('\n⚠️  WARNING: Fallbacks were used during gameplay!'));
+      console.log(chalk.yellow('  By System:'));
+      for (const [system, count] of Object.entries(fallbackStats.bySystem)) {
+        console.log(chalk.gray(`    ${system}: ${count}`));
+      }
+      console.log(chalk.yellow('  By Reason:'));
+      for (const [reason, count] of Object.entries(fallbackStats.byReason)) {
+        console.log(chalk.gray(`    ${reason}: ${count}`));
+      }
+      
+      const rate = fallbackLogger.getFallbackRate(300000);
+      console.log(chalk.yellow(`  Fallback rate: ${rate.toFixed(2)}/min\n`));
+      
+      console.log(chalk.gray('  See console output above for detailed fallback warnings.\n'));
+    } else {
+      console.log(chalk.green('  ✓ No fallbacks used - all LLM generations successful!\n'));
+    }
 
     // Save replay
     console.log(chalk.yellow('\n═══ Saving Replay ═══\n'));

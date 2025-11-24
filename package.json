@@ -46,6 +46,8 @@
     "test:commands": "node test-contextual-commands.js",
     "test:phase1c": "node test-phase-1c.js",
     "test:e2e": "node test-end-to-end.js",
+    "test:gossip": "node test-gossip-network.js",
+    "test:fallback": "node test-fallback-logging.js",
     "replay:list": "node view-replay.js",
     "replay:view": "node view-replay.js",
     "replay:play": "node play-replay.js",

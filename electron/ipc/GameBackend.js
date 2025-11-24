@@ -20,6 +20,8 @@ import { GridPositionComponent } from '../../src/systems/grid/GridPositionCompon
 import { NPCScheduleSystem } from '../../src/systems/npc/NPCScheduleSystem.js';
 import { ThemeEngine } from '../../src/systems/theme/ThemeEngine.js';
 import { DynamicContentGenerator } from '../../src/systems/theme/DynamicContentGenerator.js';
+import { ThemedWorldGenerator } from '../../src/services/ThemedWorldGenerator.js';
+import { AutonomousGameService } from '../../src/services/AutonomousGameService.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -44,6 +46,7 @@ export class GameBackend {
     // Autonomous mode state
     this.autonomousMode = false;
     this.autonomousInterval = null;
+    this.autonomousService = null; // Shared autonomous game service
     this.autonomousConfig = {
       maxTurnsPerConversation: 10,
       pauseBetweenTurns: 2000, // 2 seconds
@@ -712,6 +715,12 @@ export class GameBackend {
     console.log('[GameBackend] Stopping autonomous mode');
     this.autonomousMode = false;
 
+    // Stop the autonomous service if running
+    if (this.autonomousService) {
+      this.autonomousService.stop();
+      this.autonomousService = null;
+    }
+
     if (this.currentConversation) {
       this.endConversation(this.currentConversation.id);
     }
@@ -726,8 +735,55 @@ export class GameBackend {
 
   /**
    * Main autonomous game loop with action system
+   * Now uses shared AutonomousGameService
    */
   async _runAutonomousLoop() {
+    console.log('[GameBackend] Starting autonomous loop (using shared service)...');
+    
+    // Create autonomous game service
+    this.autonomousService = new AutonomousGameService({
+      session: this.session,
+      player: this.player,
+      npcs: this.npcs,
+      gameMaster: this.gameMaster,
+      actionSystem: this.actionSystem,
+      combatSystem: this.combatSystem,
+      combatEncounterSystem: this.combatEncounterSystem,
+      replayLogger: this.replayLogger,
+      ollama: this.ollama,
+      eventBus: this.eventBus,
+      locationGrid: this.locationGrid,
+      autonomousConfig: this.autonomousConfig,
+      mainQuest: this.mainQuest,
+      onEvent: (event, data) => {
+        // Forward all service events to UI
+        this._sendToUI(`autonomous:${event}`, data);
+        
+        // Stop service if autonomous mode is turned off
+        if (!this.autonomousMode && this.autonomousService) {
+          this.autonomousService.stop();
+        }
+      }
+    });
+
+    // Run game loop (will run until autonomousMode is false)
+    try {
+      await this.autonomousService.runGameLoop({
+        maxIterations: Infinity // UI runs indefinitely
+      });
+    } catch (error) {
+      console.error('[GameBackend] Autonomous service error:', error);
+      this.autonomousMode = false;
+    }
+    
+    this.autonomousService = null;
+  }
+
+  /**
+   * DEPRECATED - Keeping for reference, now handled by AutonomousGameService
+   * Main autonomous game loop with action system (OLD)
+   */
+  async _runAutonomousLoop_OLD() {
     console.log('[GameBackend] Starting autonomous loop...');
     while (this.autonomousMode) {
       try {
@@ -1909,6 +1965,7 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
 
   /**
    * Generate a themed world with dynamic content
+   * Now uses shared ThemedWorldGenerator service
    */
   async generateThemedWorld(config) {
     try {
@@ -1921,124 +1978,17 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
         this.eventBus = EventBus.getInstance();
       }
 
-      // Initialize theme engine and content generator
-      const themeEngine = new ThemeEngine();
-      const contentGenerator = new DynamicContentGenerator(themeEngine, this.ollama);
+      // Use shared world generator service
+      const worldGenerator = new ThemedWorldGenerator(this.ollama, this.eventBus);
+      const worldData = await worldGenerator.generateThemedWorld(config);
 
-      // Set the selected theme
-      const selectedTheme = config.theme || 'fantasy';
-      themeEngine.setTheme(selectedTheme);
-      console.log(`[GameBackend] Theme set to: ${selectedTheme}`);
-
-      // Create GameMaster with theme support
-      const gameMaster = new GameMaster(this.ollama, this.eventBus);
-      gameMaster.setThemeEngine(themeEngine);
-      gameMaster.setContentGenerator(contentGenerator);
-
-      // Create player character
-      const playerStats = new CharacterStats({
-        strength: 12,
-        dexterity: 10,
-        constitution: 14,
-        intelligence: 11,
-        wisdom: 10,
-        charisma: 13
-      });
-
-      const playerInventory = new Inventory({ maxSlots: 20, maxWeight: 100, gold: 75 });
-      const playerEquipment = new Equipment();
-      const playerAbilities = new AbilityManager();
-
-      const playerName = config.playerName || 'Kael';
-      const player = new Character('player', playerName, {
-        role: 'protagonist',
-        personality: new Personality({
-          friendliness: 60,
-          intelligence: 70,
-          caution: 50,
-          honor: 75,
-          greed: 40,
-          aggression: 35
-        }),
-        backstory: `A curious adventurer known as ${playerName}`,
-        stats: playerStats,
-        inventory: playerInventory,
-        equipment: playerEquipment,
-        abilities: playerAbilities
-      });
-
-      // Generate opening narration
-      console.log('[GameBackend] Generating opening narration...');
-      const openingNarration = await gameMaster.generateThemedOpeningNarration(player, selectedTheme);
-
-      // Generate NPCs
-      console.log('[GameBackend] Generating NPCs...');
-      const npcCount = config.npcCount || 10;
-      const npcs = await contentGenerator.generateNPCRoster(npcCount, {});
-      const npcMap = new Map();
-      npcs.forEach((npc, idx) => {
-        npc.id = `npc_${idx}`;
-        npcMap.set(npc.id, new Character(npc.id, npc.name, {
-          role: npc.role,
-          archetype: npc.archetype,
-          personality: new Personality(npc.personality || {
-            friendliness: 50,
-            intelligence: 50,
-            caution: 50,
-            honor: 50,
-            greed: 50,
-            aggression: 50
-          }),
-          backstory: npc.backstory,
-          stats: new CharacterStats()
-        }));
-      });
-
-      // Generate quests
-      console.log('[GameBackend] Generating quests...');
-      const sidequests = [];
-      for (let i = 0; i < (config.questCount || 5); i++) {
-        const quest = await contentGenerator.generateQuest({});
-        sidequests.push({
-          ...quest,
-          id: `quest_${i}`
-        });
-      }
-
-      // Generate main quest
-      console.log('[GameBackend] Generating main quest...');
-      const mainQuest = await contentGenerator.generateMainQuest(player, {});
-
-      // Generate items
-      console.log('[GameBackend] Generating items...');
-      const items = [];
-      const categories = ['weapons', 'armor', 'artifacts'];
-      for (let i = 0; i < (config.itemCount || 15); i++) {
-        const category = categories[i % categories.length];
-        const item = await contentGenerator.generateItem({ category });
-        items.push({
-          ...item,
-          id: `item_${i}`
-        });
-      }
-
-      // Generate locations
-      console.log('[GameBackend] Generating locations...');
-      const locations = [];
-      for (let i = 0; i < (config.locationCount || 8); i++) {
-        const location = await contentGenerator.generateLocation({});
-        locations.push({
-          ...location,
-          id: `location_${i}`
-        });
-      }
-
+      // Format for UI compatibility
       const worldConfig = {
-        title: config.worldTitle || 'Untitled World',
-        theme: selectedTheme,
-        playerName: playerName,
-        openingNarration,
-        npcs: npcs.map(npc => ({
+        title: worldData.title,
+        theme: worldData.theme,
+        playerName: worldData.playerName,
+        openingNarration: worldData.openingNarration,
+        npcs: worldData.npcsData.map(npc => ({
           id: npc.id,
           name: npc.name,
           role: npc.role,
@@ -2046,12 +1996,9 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
           backstory: npc.backstory,
           personality: npc.personality
         })),
-        quests: {
-          main: mainQuest,
-          side: sidequests
-        },
-        items: items,
-        locations: locations,
+        quests: worldData.quests,
+        items: worldData.items,
+        locations: worldData.locations,
         generatedAt: new Date().toISOString()
       };
 

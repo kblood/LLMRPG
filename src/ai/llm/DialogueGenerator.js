@@ -62,8 +62,26 @@ export class DialogueGenerator {
       };
     } catch (error) {
       console.error('Error generating greeting:', error);
+      
+      const fallbackText = this.getFallbackGreeting(speaker, listener);
+      
+      // Log fallback usage
+      this.fallbackLogger.logFallback({
+        system: 'DialogueGenerator',
+        operation: 'greeting',
+        reason: 'LLM_ERROR',
+        fallbackValue: fallbackText,
+        context: {
+          speaker: speaker.name,
+          listener: listener?.name,
+          friendliness: speaker.personality.friendliness,
+          relationship: speaker.relationships.getRelationship(listener?.id)
+        },
+        error: error
+      });
+      
       return {
-        text: this.getFallbackGreeting(speaker, listener),
+        text: fallbackText,
         seed,
         valid: false,
         error: error.message
@@ -127,8 +145,25 @@ export class DialogueGenerator {
       };
     } catch (error) {
       console.error('Error generating response:', error);
+      
+      const fallbackText = this.getFallbackResponse(speaker);
+      
+      // Log fallback usage
+      this.fallbackLogger.logFallback({
+        system: 'DialogueGenerator',
+        operation: 'response',
+        reason: 'LLM_ERROR',
+        fallbackValue: fallbackText,
+        context: {
+          speaker: speaker.name,
+          friendliness: speaker.personality.friendliness,
+          playerSaid: context.playerSaid?.substring(0, 50)
+        },
+        error: error
+      });
+      
       return {
-        text: this.getFallbackResponse(speaker),
+        text: fallbackText,
         seed,
         valid: false,
         error: error.message
