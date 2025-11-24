@@ -6,6 +6,7 @@ class OllamaRPGApp {
     this.gameAPI = window.gameAPI;
     this.initialized = false;
     this.autonomousMode = false;
+    this.autonomousPaused = false;
     this.manualMode = false;
     this.conversationCount = 0;
     this.currentConversation = null;
@@ -141,6 +142,15 @@ class OllamaRPGApp {
     // Start Autonomous Mode button
     document.getElementById('start-autonomous-btn').addEventListener('click', () => {
       this.startAutonomousMode();
+    });
+
+    // Pause/Resume Autonomous Mode buttons
+    document.getElementById('pause-autonomous-btn').addEventListener('click', () => {
+      this.pauseAutonomousMode();
+    });
+
+    document.getElementById('resume-autonomous-btn').addEventListener('click', () => {
+      this.resumeAutonomousMode();
     });
 
     // Stop Autonomous Mode buttons
@@ -620,6 +630,7 @@ class OllamaRPGApp {
 
       if (result.success) {
         this.autonomousMode = false;
+        this.autonomousPaused = false;
 
         // Show mode selector and utility controls again
         document.querySelector('.mode-selector').classList.remove('hidden');
@@ -636,6 +647,38 @@ class OllamaRPGApp {
     } catch (error) {
       console.error('[App] Failed to stop autonomous mode:', error);
     }
+  }
+
+  pauseAutonomousMode() {
+    console.log('[App] Pausing autonomous mode');
+    this.autonomousPaused = true;
+
+    // Send pause command to backend
+    if (this.gameAPI.pauseAutonomous) {
+      this.gameAPI.pauseAutonomous?.();
+    }
+
+    // Update UI
+    document.getElementById('pause-autonomous-btn').classList.add('hidden');
+    document.getElementById('resume-autonomous-btn').classList.remove('hidden');
+    document.getElementById('mode-status').textContent = 'Paused';
+    this.setStatus('Autonomous mode paused - Click Resume to continue');
+  }
+
+  resumeAutonomousMode() {
+    console.log('[App] Resuming autonomous mode');
+    this.autonomousPaused = false;
+
+    // Send resume command to backend
+    if (this.gameAPI.resumeAutonomous) {
+      this.gameAPI.resumeAutonomous?.();
+    }
+
+    // Update UI
+    document.getElementById('pause-autonomous-btn').classList.remove('hidden');
+    document.getElementById('resume-autonomous-btn').classList.add('hidden');
+    document.getElementById('mode-status').textContent = 'Running';
+    this.setStatus('Autonomous mode resumed - AI characters continue interacting...');
   }
 
   showConversationPanel(conversationData) {

@@ -43,6 +43,7 @@ export class AutonomousGameService {
     this.currentConversation = null;
     this.conversationHistory = [];
     this.isRunning = false;
+    this.isPaused = false;
     this.mainQuest = config.mainQuest || null;
     
     // Event callback for UI/test updates
@@ -61,8 +62,19 @@ export class AutonomousGameService {
     
     let iteration = 0;
     while (this.isRunning && iteration < maxIterations) {
+      // Check if paused
+      if (this.isPaused) {
+        await this._sleep(500); // Check pause status every 500ms
+        continue;
+      }
+
       try {
         iteration++;
+        
+        // Advance time (traveling/thinking between actions)
+        const timeDelta = 5 + Math.floor(Math.random() * 10); // 5-15 minutes
+        const timeUpdate = this.session.tick(timeDelta);
+        this.onEvent('time_update', timeUpdate);
         
         // Advance time (traveling/thinking between actions)
         const timeDelta = 5 + Math.floor(Math.random() * 10); // 5-15 minutes
@@ -153,6 +165,24 @@ export class AutonomousGameService {
     if (this.currentConversation) {
       this._endConversation(this.currentConversation.id);
     }
+  }
+
+  /**
+   * Pause the autonomous game loop
+   */
+  pause() {
+    console.log('[AutonomousGameService] Pausing game loop...');
+    this.isPaused = true;
+    this.onEvent('paused', {});
+  }
+
+  /**
+   * Resume the autonomous game loop
+   */
+  resume() {
+    console.log('[AutonomousGameService] Resuming game loop...');
+    this.isPaused = false;
+    this.onEvent('resumed', {});
   }
 
   /**

@@ -184,6 +184,28 @@ function setupIPCHandlers() {
     }
   });
 
+  // Pause autonomous mode
+  ipcMain.handle('game:pauseAutonomous', async () => {
+    try {
+      const result = gameBackend.pauseAutonomousMode();
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('[Main] Failed to pause autonomous mode:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Resume autonomous mode
+  ipcMain.handle('game:resumeAutonomous', async () => {
+    try {
+      const result = gameBackend.resumeAutonomousMode();
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('[Main] Failed to resume autonomous mode:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Replay operations
   ipcMain.handle('replay:list', async () => {
     try {

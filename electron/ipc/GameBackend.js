@@ -741,6 +741,28 @@ export class GameBackend {
   }
 
   /**
+   * Pause autonomous mode
+   */
+  pauseAutonomousMode() {
+    console.log('[GameBackend] Pausing autonomous mode');
+    if (this.autonomousService) {
+      this.autonomousService.pause();
+    }
+    return { paused: true };
+  }
+
+  /**
+   * Resume autonomous mode
+   */
+  resumeAutonomousMode() {
+    console.log('[GameBackend] Resuming autonomous mode');
+    if (this.autonomousService) {
+      this.autonomousService.resume();
+    }
+    return { resumed: true };
+  }
+
+  /**
    * Main autonomous game loop with action system
    * Now uses shared AutonomousGameService
    */

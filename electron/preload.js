@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('gameAPI', {
   // Autonomous mode
   startAutonomous: () => ipcRenderer.invoke('game:startAutonomous'),
   stopAutonomous: () => ipcRenderer.invoke('game:stopAutonomous'),
+  pauseAutonomous: () => ipcRenderer.invoke('game:pauseAutonomous'),
+  resumeAutonomous: () => ipcRenderer.invoke('game:resumeAutonomous'),
 
   // Replay operations
   listReplays: () => ipcRenderer.invoke('replay:list'),
