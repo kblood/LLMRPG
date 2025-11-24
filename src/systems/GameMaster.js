@@ -13,10 +13,11 @@ import Logger from '../utils/Logger.js';
  * - Narrative coherence and pacing
  */
 export class GameMaster {
-    constructor(ollamaService = null, eventBus = null) {
+    constructor(ollamaService = null, eventBus = null, theme = null) {
         this.ollama = ollamaService || OllamaService.getInstance();
         this.eventBus = eventBus || EventBus.getInstance();
         this.logger = new Logger('GameMaster');
+        this.theme = theme; // Theme for content generation
         
         // GM personality and style
         this.personality = {
@@ -186,27 +187,50 @@ Provide a short, evocative description (2-3 sentences) that sets the atmosphere 
     async generateOpeningNarration(player, world, options = {}) {
         this.logger.info('Generating opening narration for game start');
 
+        // Use theme-aware location if available
+        let location = 'a mystical village';
+        let themeContext = '';
+        
+        if (this.theme) {
+            // Get a random location from the theme
+            const locationTypes = this.theme.locations?.types || [];
+            if (locationTypes.length > 0) {
+                const locType = locationTypes[Math.floor(Math.random() * locationTypes.length)];
+                location = locType.replace(/_/g, ' ');
+            }
+            
+            // Add theme context to narration
+            themeContext = `\n\nTheme/Setting: ${this.theme.description}\nAtmosphere: ${this.theme.settings?.atmosphere || 'mysterious'}`;
+        }
+        
+        // Use provided location from world config if available
+        if (options.startingLocation) {
+            location = options.startingLocation;
+        } else if (world?.locations && world.locations.length > 0) {
+            location = world.locations[0].name || location;
+        }
+
         const prompt = `You are ${this.personality.name}, the narrator of an epic RPG adventure.
 
 The story begins with ${player.name}, ${player.backstory}
 
 Setting:
-- The village of Millhaven, a quiet settlement nestled in rolling hills
+- The ${location}, a location awaiting discovery
 - Time: ${options.timeOfDay || 'late afternoon'}
-- Season: ${options.season || 'early autumn'}
+- Season: ${options.season || 'early autumn'}${themeContext}
 
 The protagonist's journey:
-${player.name} has traveled for days to reach this village, drawn by rumors and whispers. The roads have been long, and the weight of purpose grows heavier with each step.
+${player.name} has traveled for days to reach this place, drawn by rumors and whispers. The roads have been long, and the weight of purpose grows heavier with each step.
 
 Personality hints: ${this._summarizePersonality(player.personality)}
 
 Generate an atmospheric opening narration (3-5 paragraphs) that:
-1. Describes ${player.name} approaching the village from a distance
+1. Describes ${player.name} approaching ${location} from a distance
 2. Hints at their inner motivations and what drives them forward
 3. Sets a mysterious and atmospheric tone
-4. Introduces Millhaven and its appearance
+4. Introduces ${location} and its appearance
 5. Creates anticipation for what lies ahead
-6. Ends with ${player.name} entering the village proper
+6. Ends with ${player.name} entering this location
 
 Make it evocative, mysterious, and compelling. This is the beginning of an epic tale.
 
@@ -224,14 +248,14 @@ Opening Narration:`;
             // Store in narrative memory
             this.narrativeMemory.push({
                 text: narration,
-                context: { type: 'opening', player: player.name },
+                context: { type: 'opening', player: player.name, location, theme: this.theme?.name },
                 timestamp: Date.now()
             });
 
             return narration;
         } catch (error) {
             this.logger.error('Failed to generate opening narration:', error);
-            return this._getFallbackOpeningNarration(player);
+            return this._getFallbackOpeningNarration(player, location);
         }
     }
 
@@ -295,11 +319,30 @@ Victory Narration:`;
     async generateWorld(player, options = {}) {
         this.logger.info('Generating world locations');
 
+        // Build theme context
+        let themeContext = '';
+        let startingLocation = 'a settlement';
+        
+        if (this.theme) {
+            themeContext = `\nTheme: ${this.theme.description}\nAtmosphere: ${this.theme.settings?.atmosphere || 'mysterious'}\nTone: ${this.theme.settings?.tone || 'exploration'}`;
+            
+            // Get a fitting starting location from theme
+            const locationTypes = this.theme.locations?.types || [];
+            if (locationTypes.length > 0) {
+                const locType = locationTypes[Math.floor(Math.random() * locationTypes.length)];
+                startingLocation = locType.replace(/_/g, ' ');
+            }
+        }
+        
+        if (options.startingLocation) {
+            startingLocation = options.startingLocation;
+        }
+
         const prompt = `You are ${this.personality.name}, creating the world for this RPG adventure.
 
 Protagonist: ${player.name}, ${player.backstory}
 
-Starting location: Millhaven - a quiet village nestled in rolling hills
+Starting location: ${startingLocation} - the location where the journey begins${themeContext}
 
 Create a living, breathing world with:
 1. 3-4 additional cities/towns (each with distinct character and culture)
@@ -322,7 +365,7 @@ Format your response as JSON:
       "atmosphere": "bustling|quiet|mysterious|industrial|etc",
       "population": "small|medium|large",
       "notable": "What makes this place special",
-      "distance_from_millhaven": "close|moderate|far"
+      "distance_from_start": "close|moderate|far"
     }
   ],
   "dungeons": [
@@ -387,6 +430,14 @@ Format your response as JSON:
     async generateMainQuest(player, world, options = {}) {
         this.logger.info('Generating main quest');
 
+        // Get starting location
+        let startingLocation = 'a mysterious location';
+        if (world?.cities && world.cities.length > 0) {
+            startingLocation = world.cities[0].name;
+        } else if (options.startingLocation) {
+            startingLocation = options.startingLocation;
+        }
+
         // Build location context from world
         const locationContext = world ? `
 
@@ -399,20 +450,26 @@ Special Locations: ${world.special_locations?.map(s => `${s.name} (${s.type})`).
 You can reference these locations in the quest stages and objectives.
 ` : '';
 
+        // Add theme context if available
+        let themeContext = '';
+        if (this.theme) {
+            themeContext = `\nTheme: ${this.theme.description}\nTone: ${this.theme.settings?.tone || 'mysterious'}`;
+        }
+
         const prompt = `You are ${this.personality.name}, creating the main quest for this RPG adventure.
 
 Protagonist: ${player.name}, ${player.backstory}
 Personality: ${this._summarizePersonality(player.personality)}
 
-Setting: The village of Millhaven and surrounding lands${locationContext}
+Setting: Starting at ${startingLocation} and surrounding lands${themeContext}${locationContext}
 
 Create a compelling main quest that:
 1. Feels personal and meaningful to ${player.name}
 2. Involves mystery, exploration, and social interaction
 3. Requires speaking with multiple NPCs to uncover the truth
-4. Hints at something ancient or forgotten
+4. Has a theme-appropriate narrative hook
 5. Has multiple stages that will unfold naturally
-6. Introduces 2-3 key locations beyond the village
+6. Introduces 2-3 key locations beyond the starting area
 
 Format your response as JSON:
 {
@@ -456,11 +513,11 @@ Format your response as JSON:
                 this.logger.info(`Generated main quest: ${quest.title}`);
                 return quest;
             } else {
-                return this._getFallbackMainQuest(player);
+                return this._getFallbackMainQuest(player, startingLocation);
             }
         } catch (error) {
             this.logger.error('Failed to generate main quest:', error);
-            return this._getFallbackMainQuest(player);
+            return this._getFallbackMainQuest(player, startingLocation);
         }
     }
 
@@ -860,17 +917,19 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
             if (jsonMatch) {
                 const world = JSON.parse(jsonMatch[0]);
 
-                // Add Millhaven as the starting city if not included
+                // Ensure cities array exists
                 if (!world.cities) world.cities = [];
-                const hasMillhaven = world.cities.some(c => c.name.toLowerCase().includes('millhaven'));
-                if (!hasMillhaven) {
+                
+                // Don't force Millhaven - let the LLM-generated world stand
+                // If no cities were generated, add a generic starting location
+                if (world.cities.length === 0) {
                     world.cities.unshift({
-                        name: "Millhaven",
-                        description: "A quiet village nestled in rolling hills, known for its peaceful atmosphere and tight-knit community.",
+                        name: "Starting Settlement",
+                        description: "The location where your journey begins.",
                         atmosphere: "peaceful",
                         population: "small",
                         notable: "The starting point of your journey",
-                        distance_from_millhaven: "here"
+                        distance_from_start: "here"
                     });
                 }
 
@@ -962,16 +1021,16 @@ Your style is ${this.personality.tone} and you narrate in a ${this.personality.s
         return `${timeDescription}, after parting ways with ${fromAction.npcName}. You continue through the village, your thoughts lingering on the conversation. Soon, you spot ${toAction.npcName} and feel drawn to speak with them.`;
     }
 
-    _getFallbackOpeningNarration(player) {
-        return `The road stretches behind ${player.name}, dust settling in the fading light of day. For weeks, whispers and rumors have drawn them forward—tales of something ancient stirring in the quiet village of Millhaven.
+    _getFallbackOpeningNarration(player, location = 'a mystical village') {
+        return `The road stretches behind ${player.name}, dust settling in the fading light of day. For weeks, whispers and rumors have drawn them forward—tales of something awaiting in ${location}.
 
-As the settlement comes into view, nestled in rolling hills like a secret kept from the wider world, ${player.name} pauses. Smoke rises from chimneys, and the warm glow of lanterns begins to flicker to life. It looks peaceful, almost too peaceful, but beneath that tranquility, there's a tension in the air—a sense that this place holds more than it shows.
+As the settlement comes into view, nestled in a landscape that speaks of mystery and adventure, ${player.name} pauses. Smoke rises from structures, and the warm glow of lanterns begins to flicker to life. It looks promising, yet somehow watchful—a place that holds more than it immediately reveals.
 
-${player.name} adjusts their pack and continues forward, each step carrying them deeper into whatever fate awaits. The village gates stand open, welcoming yet somehow watchful. This is where the journey truly begins.`;
+${player.name} adjusts their pack and continues forward, each step carrying them deeper into whatever fate awaits. This is where the journey truly begins.`;
     }
 
     _getFallbackVictoryNarration(player, mainQuest) {
-        return `And so the tale draws to its conclusion. ${player.name}, who arrived in Millhaven as but a whisper on the wind, leaves behind a legacy written in the hearts of those they met and the world forever changed by their deeds.
+        return `And so the tale draws to its conclusion. ${player.name}, who arrived at their destination as but a whisper on the wind, leaves behind a legacy written in the hearts of those they met and the world forever changed by their deeds.
 
 The quest has been completed. The objective that once seemed impossible, that drew them across deserts and mountains, through dark forests and ancient ruins, has at last been achieved. ${mainQuest.title} is no more merely a distant dream—it is history, accomplished fact, woven into the very fabric of this world.
 
@@ -988,36 +1047,36 @@ The adventure does not truly end—not while memory remains. But this chapter, t
         return {
             cities: [
                 {
-                    name: "Millhaven",
-                    description: "A quiet village nestled in rolling hills, known for its peaceful atmosphere and tight-knit community.",
+                    name: "Haven",
+                    description: "A settlement where the journey begins. Known for its welcoming atmosphere and vibrant community.",
                     atmosphere: "peaceful",
                     population: "small",
                     notable: "The starting point of your journey",
-                    distance_from_millhaven: "here"
+                    distance_from_start: "here"
                 },
                 {
                     name: "Riverside",
-                    description: "A bustling trading town along the Silver River. Merchants from all over come to sell their wares. The sound of haggling fills the air from dawn to dusk.",
+                    description: "A bustling trading town along a great river. Merchants from all over come to sell their wares.",
                     atmosphere: "bustling",
                     population: "medium",
                     notable: "Major trading hub with diverse goods and information",
-                    distance_from_millhaven: "moderate"
+                    distance_from_start: "moderate"
                 },
                 {
-                    name: "Ironhold",
-                    description: "A fortified mining city built into the mountainside. The constant clanging of hammers and smell of forge-fire define this industrial settlement.",
+                    name: "Stronghold",
+                    description: "A fortified city built into the landscape. The constant activity and strong defenses define this settlement.",
                     atmosphere: "industrial",
                     population: "large",
-                    notable: "Finest metalwork in the region, strong military presence",
-                    distance_from_millhaven: "far"
+                    notable: "Well-organized and well-defended settlement",
+                    distance_from_start: "far"
                 },
                 {
-                    name: "Moonvale",
-                    description: "A mysterious village shrouded in perpetual mist. Locals are secretive and wary of outsiders, speaking in hushed tones about ancient traditions.",
+                    name: "Veil",
+                    description: "A mysterious location. Locals are secretive and wary of outsiders, speaking in hushed tones about ancient traditions.",
                     atmosphere: "mysterious",
                     population: "small",
                     notable: "Strange rituals and deep connection to the old ways",
-                    distance_from_millhaven: "moderate"
+                    distance_from_start: "moderate"
                 }
             ],
             dungeons: [
@@ -1118,51 +1177,51 @@ The adventure does not truly end—not while memory remains. But this chapter, t
         };
     }
 
-    _getFallbackMainQuest(player) {
+    _getFallbackMainQuest(player, startingLocation = 'Millhaven') {
         return {
             id: `quest_${Date.now()}`,
-            title: "Echoes of the Forgotten",
-            description: "Strange occurrences have plagued Millhaven in recent weeks. Dreams of ancient voices, missing memories, and whispers of something buried beneath the village. The locals are worried but tight-lipped. You must uncover the truth.",
-            motivation: `${player.name} has heard the rumors from afar and feels an inexplicable pull toward Millhaven, as if this mystery is somehow tied to their own purpose.`,
+            title: `Mystery of ${startingLocation}`,
+            description: `Strange occurrences have plagued ${startingLocation} in recent weeks. Dreams of ancient voices, missing memories, and whispers of something hidden. The locals are worried but tight-lipped. You must uncover the truth.`,
+            motivation: `${player.name} has heard the rumors and feels an inexplicable pull toward ${startingLocation}, as if this mystery is somehow tied to their own purpose.`,
             status: 'active',
             stages: [
                 {
                     id: "stage_1",
-                    title: "Speak with the Villagers",
-                    description: "Talk to the people of Millhaven to learn about the strange occurrences",
+                    title: "Speak with the Locals",
+                    description: `Talk to the people of ${startingLocation} to learn about the strange occurrences`,
                     objectives: [
-                        "Speak with at least 3 different villagers",
-                        "Learn about the dreams and missing memories",
-                        "Find someone who knows about the village's history"
+                        "Speak with at least 3 different locals",
+                        "Learn about the mysterious events",
+                        "Find someone who knows about this place's history"
                     ]
                 },
                 {
                     id: "stage_2",
-                    title: "Uncover the Past",
-                    description: "Investigate the history of Millhaven and what lies beneath",
+                    title: "Uncover the Truth",
+                    description: `Investigate the history and mysteries of ${startingLocation}`,
                     objectives: [
-                        "Find records or stories about the village's founding",
+                        "Find records or stories about this place",
                         "Locate the source of the disturbances"
                     ]
                 }
             ],
             locations: [
                 {
-                    name: "The Old Temple Ruins",
-                    description: "Ancient ruins on the hillside above Millhaven, said to predate the village itself",
+                    name: "Ancient Ruins",
+                    description: `Historic ruins near ${startingLocation}, said to predate the settlement itself`,
                     type: "ruins"
                 },
                 {
-                    name: "The Whispering Woods",
-                    description: "A dark forest to the east where strange sounds have been heard at night",
+                    name: "Hidden Grove",
+                    description: `A mysterious location where strange sounds have been heard`,
                     type: "forest"
                 }
             ],
             rewards: {
                 gold: 150,
                 experience: 1000,
-                items: ["Ancient Medallion"],
-                narrative: "Uncovering the truth will reveal the ancient history of Millhaven and your connection to it"
+                items: ["Ancient Artifact"],
+                narrative: "Uncovering the truth will reveal hidden history and your connection to it"
             },
             createdAt: Date.now()
         };

@@ -173,8 +173,15 @@ export class GameBackend {
       this.session.addCharacter(this.player);
       this.npcs.forEach(npc => this.session.addCharacter(npc));
 
-      // Initialize Game Master
-      this.gameMaster = new GameMaster(this.ollama, this.eventBus);
+      // Setup theme for game master
+      const themeEngine = new ThemeEngine();
+      const themeKey = options.theme || 'fantasy';
+      themeEngine.setTheme(themeKey);
+      const theme = themeEngine.getTheme();
+      console.log('[GameBackend] Theme set to:', themeKey);
+
+      // Initialize Game Master with theme
+      this.gameMaster = new GameMaster(this.ollama, this.eventBus, theme);
 
       // Initialize Action System
       this.actionSystem = new ActionSystem(this.gameMaster, this.session);
@@ -1454,6 +1461,9 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
 
     console.log('[GameBackend] Adding world knowledge to NPC memories...');
 
+    // Identify the starting location (first city)
+    const startingLocation = world.cities && world.cities.length > 0 ? world.cities[0].name : 'the starting location';
+
     // Add knowledge about cities
     if (world.cities) {
       world.cities.forEach(city => {
@@ -1462,7 +1472,7 @@ Respond naturally in first person. Keep it concise (1-2 sentences).`;
             type: 'knowledge',
             category: 'location',
             content: `${city.name} - ${city.description}`,
-            importance: city.name === 'Millhaven' ? 0.9 : 0.6,
+            importance: city.name === startingLocation ? 0.9 : 0.6,
             location: city.name,
             tags: ['city', city.atmosphere, city.population]
           });
