@@ -1,0 +1,26 @@
+UI TEST CHECKLIST
+=================
+
+To verify the UI updates are working:
+
+1. Run: npm start
+2. Create a new game (select any theme)
+3. Click "Watch AI Play" button
+4. Observe the following should happen:
+
+✓ Welcome panel disappears
+✓ Conversation panel appears with event log
+✓ First message: "🤖 Autonomous mode started..."
+✓ Time display updates (top right)
+✓ Day counter shows in "Session" info
+✓ Quests appear in quest panel (left sidebar)
+✓ Events log to dialogue-history area:
+  - Quest notifications
+  - Location changes
+  - Conversations
+  - Combat encounters
+  - Action results
+✓ Character stats update (HP, stamina, etc.)
+✓ Status bar shows current activity
+
+If ALL of these work, Phase 1 is complete!

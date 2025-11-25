@@ -342,6 +342,11 @@ export class StandaloneAutonomousGame {
       const conversation = await this.gameService.startConversation(chosenNPC.id);
       const conversationId = conversation.id || conversation.conversationId;
 
+      if (!conversationId) {
+        console.error('[StandaloneAutonomousGame] Failed to get conversationId from conversation:', conversation);
+        throw new Error('No conversationId returned from startConversation');
+      }
+
       this.currentConversation = {
         id: conversationId,
         npcId: chosenNPC.id,
@@ -361,6 +366,17 @@ export class StandaloneAutonomousGame {
           text: conversation.greeting,
           turn: 0
         });
+
+        // Set last dialogue in game service
+        this.gameService.lastDialogue = {
+          conversationId,
+          speakerId: chosenNPC.id,
+          speakerName: chosenNPC.name,
+          text: conversation.greeting,
+          turn: 0,
+          timestamp: Date.now(),
+          frame
+        };
 
         // Publish dialogue line
         statePublisher.publish(this.gameService.getGameState(), EVENT_TYPES.DIALOGUE_LINE, {
@@ -399,6 +415,17 @@ export class StandaloneAutonomousGame {
           text: playerResponse,
           turn
         });
+
+        // Set last dialogue in game service
+        this.gameService.lastDialogue = {
+          conversationId,
+          speakerId: this.player.id,
+          speakerName: this.player.name,
+          text: playerResponse,
+          turn,
+          timestamp: Date.now(),
+          frame
+        };
 
         // Publish player dialogue line
         statePublisher.publish(this.gameService.getGameState(), EVENT_TYPES.DIALOGUE_LINE, {
@@ -439,6 +466,17 @@ export class StandaloneAutonomousGame {
           text: npcResponse.text || npcResponse.output,
           turn
         });
+
+        // Set last dialogue in game service (NPC response)
+        this.gameService.lastDialogue = {
+          conversationId,
+          speakerId: chosenNPC.id,
+          speakerName: chosenNPC.name,
+          text: npcResponse.text || npcResponse.output,
+          turn,
+          timestamp: Date.now(),
+          frame
+        };
 
         // Publish NPC dialogue line
         statePublisher.publish(this.gameService.getGameState(), EVENT_TYPES.DIALOGUE_LINE, {

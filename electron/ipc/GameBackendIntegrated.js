@@ -41,6 +41,7 @@ export class GameBackendIntegrated {
     // UI subscriber
     this.uiSubscriberId = 'electron-ui';
     this.uiCallback = null; // Set by setUICallback
+    this.uiCallbackCount = 0; // Track how many times we send to UI
     
     // Replay system
     this.replayLogger = null;
@@ -77,6 +78,10 @@ export class GameBackendIntegrated {
     statePublisher.subscribe({
       id: this.uiSubscriberId,
       onStateUpdate: (state, eventType, metadata = {}) => {
+        this.uiCallbackCount++;
+        if (this.uiCallbackCount <= 5 || this.uiCallbackCount % 10 === 0) {
+          console.log(`[GameBackendIntegrated] State update #${this.uiCallbackCount}: ${eventType}, Frame: ${state?.frame}`);
+        }
         if (this.uiCallback) {
           this.uiCallback({
             type: 'state_update',
@@ -84,9 +89,12 @@ export class GameBackendIntegrated {
             state,
             ...metadata // Spread metadata into the callback object
           });
+        } else {
+          console.warn('[GameBackendIntegrated] No UI callback set!');
         }
       },
       onGameEvent: (event) => {
+        console.log(`[GameBackendIntegrated] Game event: ${event?.type}`);
         if (this.uiCallback) {
           this.uiCallback({
             type: 'game_event',
@@ -190,11 +198,60 @@ export class GameBackendIntegrated {
               aggression: 50
             }),
             backstory: npcData.backstory || 'A mysterious figure',
-            stats: new CharacterStats()
+            stats: new CharacterStats(),
+            currentLocation: npcData.location || 'town_start'
           });
           this.gameSession.addCharacter(npc);
         });
         console.log('[GameBackendIntegrated] NPCs created and added to session');
+      } else {
+        // Create default NPCs for testing
+        console.log('[GameBackendIntegrated] No worldConfig NPCs, creating defaults');
+        const theme = options.theme || 'fantasy';
+        
+        const defaultNPCs = [
+          {
+            name: theme === 'sci-fi' ? 'Captain Harris' : 'Elder Thomas',
+            role: 'quest_giver',
+            backstory: theme === 'sci-fi' 
+              ? 'A veteran space captain who knows the sector well'
+              : 'A wise elder who has lived in the town for decades',
+            personality: { friendliness: 70, intelligence: 75, honor: 80 },
+            location: 'town_start'
+          },
+          {
+            name: theme === 'sci-fi' ? 'Merchant Zara' : 'Merchant Anna',
+            role: 'merchant',
+            backstory: theme === 'sci-fi'
+              ? 'A shrewd trader dealing in rare artifacts'
+              : 'A friendly merchant who sells supplies',
+            personality: { friendliness: 60, intelligence: 65, greed: 55 },
+            location: 'merchant_district'
+          },
+          {
+            name: theme === 'sci-fi' ? 'Scout Riley' : 'Hunter Marcus',
+            role: 'guide',
+            backstory: theme === 'sci-fi'
+              ? 'An experienced scout familiar with dangerous sectors'
+              : 'A seasoned hunter who knows the wilderness',
+            personality: { caution: 70, intelligence: 60, friendliness: 50 },
+            location: 'wilderness_forest'
+          }
+        ];
+        
+        defaultNPCs.forEach((npcData, idx) => {
+          const npcId = `npc_${idx}`;
+          const npc = new Character(npcId, npcData.name, {
+            role: npcData.role,
+            personality: new Personality(npcData.personality),
+            backstory: npcData.backstory,
+            stats: new CharacterStats(),
+            currentLocation: npcData.location
+          });
+          this.gameSession.addCharacter(npc);
+        });
+        
+        console.log('[GameBackendIntegrated] Default NPCs created:', defaultNPCs.length);
       }
 
       // Create game service
@@ -367,7 +424,10 @@ export class GameBackendIntegrated {
 
       // Subscribe to state publisher if UI callback is set
       if (this.uiCallback) {
+        console.log('[GameBackendIntegrated] UI callback is set, subscribing to StatePublisher');
         this._subscribeToStatePublisher();
+      } else {
+        console.warn('[GameBackendIntegrated] No UI callback set, skipping StatePublisher subscription');
       }
 
       this.initialized = true;
@@ -651,6 +711,113 @@ export class GameBackendIntegrated {
     console.log('[GameBackendIntegrated] Replay saved:', filepath);
 
     return { success: true, filepath };
+  }
+
+
+  /**
+   * List all replay files
+   */
+  async listReplays() {
+    if (!fs.existsSync(this.replayDir)) {
+      fs.mkdirSync(this.replayDir, { recursive: true });
+      return [];
+    }
+
+    const files = fs.readdirSync(this.replayDir)
+      .filter(f => f.endsWith('.replay'))
+      .map(filename => {
+        const filepath = path.join(this.replayDir, filename);
+        const stats = fs.statSync(filepath);
+        return {
+          filename,
+          filepath,
+          size: stats.size,
+          created: stats.birthtime,
+          modified: stats.mtime
+        };
+      })
+      .sort((a, b) => b.modified - a.modified); // Most recent first
+
+    console.log('[GameBackendIntegrated] Found replays:', files.length);
+    return files;
+  }
+
+  /**
+   * Load replay file metadata
+   */
+  async loadReplay(filename) {
+    const filepath = path.join(this.replayDir, filename);
+
+    if (!fs.existsSync(filepath)) {
+      throw new Error(`Replay file not found: ${filename}`);
+    }
+
+    console.log('[GameBackendIntegrated] Loading replay:', filepath);
+    const replayData = await ReplayFile.load(filepath);
+
+    return {
+      filename,
+      filepath,
+      ...replayData.metadata,
+      eventCount: replayData.events?.length || 0,
+      duration: replayData.metadata?.duration || 0
+    };
+  }
+
+  /**
+   * Continue from a replay file
+   * Loads the replay state and creates a new game session from it
+   */
+  async continueFromReplay(filename, frameIndex = -1) {
+    const { ReplayContinuation } = await import('../../src/services/ReplayContinuation.js');
+
+    const filepath = path.join(this.replayDir, filename);
+
+    if (!fs.existsSync(filepath)) {
+      throw new Error(`Replay file not found: ${filename}`);
+    }
+
+    console.log('[GameBackendIntegrated] Continuing from replay:', filepath, 'frame:', frameIndex);
+
+    // Clean up existing game if any
+    if (this.autonomousGame && this.autonomousMode) {
+      await this.stopAutonomous();
+    }
+
+    // Create replay continuation
+    const continuation = new ReplayContinuation(filepath);
+    await continuation.loadReplay();
+
+    // Continue from specific frame or end
+    let gameService;
+    if (frameIndex >= 0) {
+      const state = continuation.getStateAtFrame(frameIndex);
+      gameService = await continuation.continueFromState(state);
+    } else {
+      gameService = await continuation.continueAsNewGame();
+    }
+
+    // Replace current game service
+    this.gameService = gameService;
+    this.gameSession = gameService.session;
+    this.initialized = true;
+
+    // Re-initialize replay logger for new session
+    this.replayLogger = new ReplayLogger(this.gameSession.seed + '_continued');
+    this.replayLogger.initialize(this.gameService.getGameState());
+
+    // Re-subscribe to state publisher
+    if (this.uiCallback) {
+      this._subscribeToStatePublisher();
+    }
+
+    console.log('[GameBackendIntegrated] Replay continuation initialized successfully');
+
+    return {
+      success: true,
+      message: `Continued from replay at frame ${frameIndex >= 0 ? frameIndex : 'end'}`,
+      state: this.getState()
+    };
   }
 
   /**

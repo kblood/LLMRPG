@@ -51,6 +51,9 @@ contextBridge.exposeInMainWorld('gameAPI', {
   // ============================================================================
   
   saveReplay: (filename) => ipcRenderer.invoke('game:saveReplay', filename),
+  listReplays: () => ipcRenderer.invoke('game:listReplays'),
+  loadReplay: (filename) => ipcRenderer.invoke('game:loadReplay', filename),
+  continueFromReplay: (filename, frameIndex) => ipcRenderer.invoke('game:continueFromReplay', filename, frameIndex),
 
   // ============================================================================
   // THEME PERSISTENCE

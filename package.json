@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "An RPG game built with Electron, Phaser, and React",
   "type": "module",
-  "main": "electron/main.js",
+  "main": "electron/main-integrated.js",
   "author": "",
   "license": "MIT",
   "dependencies": {

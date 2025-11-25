@@ -38,6 +38,12 @@ export class GameService {
     // Combat systems (set by GameBackendIntegrated)
     this.combatEncounterSystem = null;
     this.combatSystem = null;
+    
+    // Track last events for UI display
+    this.lastAction = null;
+    this.lastDialogue = null;
+    this.activeCombat = null;
+    this.lastCombatResult = null;
   }
 
   /**
@@ -173,7 +179,13 @@ export class GameService {
         paused: session.paused,
         autoDetectQuests: session.autoDetectQuests,
         realTimePlayed: Math.floor((Date.now() - session.startTime) / 1000)
-      }
+      },
+      
+      // Last events for UI display
+      lastAction: this.lastAction,
+      lastDialogue: this.lastDialogue,
+      activeCombat: this.activeCombat,
+      lastCombatResult: this.lastCombatResult
     };
   }
 
@@ -240,11 +252,16 @@ export class GameService {
 
       const conversationId = await this.gameSession.startConversation(npcId, options);
       
+      // Get the conversation to access greeting
+      const conversation = this.gameSession.dialogueSystem.getConversation(conversationId);
+      const greeting = conversation?.history?.[0]?.text || null;
+      
       // Return object with conversationId for consistency
       return {
         id: conversationId,
         conversationId: conversationId, // Both for compatibility
         npcId,
+        greeting, // Include the greeting if generated
         frame: this.gameSession.frame
       };
     } catch (error) {
@@ -264,6 +281,10 @@ export class GameService {
   async addConversationTurn(conversationId, text, options = {}) {
     if (!this.initialized) {
       throw new Error('GameService not initialized');
+    }
+
+    if (!conversationId) {
+      throw new Error('conversationId is required and cannot be undefined');
     }
 
     try {
@@ -291,6 +312,16 @@ export class GameService {
         text,
         options
       );
+      
+      // Store last dialogue for UI display
+      this.lastDialogue = {
+        conversationId,
+        speakerId: npcId,
+        speakerName: response.speaker || 'NPC',
+        text: response.text,
+        timestamp: Date.now(),
+        frame: this.gameSession.frame
+      };
 
       return response;
     } catch (error) {
@@ -416,34 +447,54 @@ export class GameService {
     });
 
     try {
+      let result;
       switch (type) {
         case 'travel':
-          return await this._executeTravel(actionData);
+          result = await this._executeTravel(actionData);
+          break;
 
         case 'investigate':
-          return await this._executeInvestigate(actionData);
+          result = await this._executeInvestigate(actionData);
+          break;
 
         case 'rest':
-          return await this._executeRest(actionData);
+          result = await this._executeRest(actionData);
+          break;
 
         case 'search':
-          return await this._executeSearch(actionData);
+          result = await this._executeSearch(actionData);
+          break;
 
         case 'trade':
-          return await this._executeTrade(actionData);
+          result = await this._executeTrade(actionData);
+          break;
 
         case 'use_item':
-          return await this._executeUseItem(actionData);
+          result = await this._executeUseItem(actionData);
+          break;
 
         case 'equip':
-          return await this._executeEquip(actionData);
+          result = await this._executeEquip(actionData);
+          break;
 
         case 'unequip':
-          return await this._executeUnequip(actionData);
+          result = await this._executeUnequip(actionData);
+          break;
 
         default:
           throw new Error(`Unknown action type: ${type}`);
       }
+      
+      // Store last action for UI display
+      this.lastAction = {
+        type,
+        data: actionData,
+        result,
+        timestamp: Date.now(),
+        frame: this.gameSession.frame
+      };
+      
+      return result;
     } catch (error) {
       console.error(`[GameService] Failed to execute action ${type}:`, error);
       throw error;
@@ -526,7 +577,7 @@ export class GameService {
    * @private
    */
   async _executeRest(data) {
-    const { duration = 60 } = data; // Default 1 hour
+    const { duration = 60 } = data || {}; // Default 1 hour
 
     // Resting advances time
     this.tick(duration);
@@ -534,8 +585,8 @@ export class GameService {
     // Restore resources
     const protagonist = this.gameSession.protagonist;
     if (protagonist?.stats) {
-      const maxHealth = protagonist.stats.getMaxHealth();
-      const maxStamina = protagonist.stats.getMaxStamina();
+      const maxHealth = protagonist.stats.maxHP;
+      const maxStamina = protagonist.stats.maxStamina;
       
       // Heal HP and restore stamina
       protagonist.stats.heal(Math.floor(maxHealth * 0.5));
@@ -971,6 +1022,15 @@ export class GameService {
 
     console.log(`[GameService] Executing combat: ${protagonist.name} vs ${enemies.map(e => e.name).join(', ')}`);
 
+    // Store active combat for UI display
+    this.activeCombat = {
+      protagonist,
+      enemies,
+      encounterData,
+      started: Date.now(),
+      frame: this.gameSession.frame
+    };
+
     try {
       const result = await this.combatSystem.executeCombat(
         protagonist,
@@ -989,9 +1049,21 @@ export class GameService {
 
       console.log(`[GameService] Combat ended: ${result.outcome} in ${result.rounds} rounds`);
       
+      // Store combat result for UI display
+      this.lastCombatResult = {
+        ...result,
+        enemies: enemies.map(e => ({ id: e.id, name: e.name })),
+        timestamp: Date.now(),
+        frame: this.gameSession.frame
+      };
+      
+      // Clear active combat
+      this.activeCombat = null;
+      
       return result;
     } catch (error) {
       console.error('[GameService] Combat execution failed:', error);
+      this.activeCombat = null;
       throw error;
     }
   }
@@ -1068,18 +1140,18 @@ export class GameService {
       },
       stats: character.stats ? {
         level: character.stats.level || 1,
-        health: character.stats.current?.health || character.stats.hp || 100,
-        maxHealth: character.stats.max?.health || character.stats.maxHP || 100,
-        stamina: character.stats.current?.stamina || character.stats.mp || 100,
-        maxStamina: character.stats.max?.stamina || character.stats.maxMP || 100,
-        strength: character.stats.strength || 10,
-        dexterity: character.stats.dexterity || 10,
-        constitution: character.stats.constitution || 10,
-        intelligence: character.stats.intelligence || 10,
-        wisdom: character.stats.wisdom || 10,
-        charisma: character.stats.charisma || 10,
-        attack: character.stats.attack || 0,
-        defense: character.stats.defense || 0,
+        health: character.stats.currentHP || 100,
+        maxHealth: character.stats.maxHP || 100,
+        stamina: character.stats.currentStamina || 100,
+        maxStamina: character.stats.maxStamina || 100,
+        strength: character.stats.attributes?.strength || 10,
+        dexterity: character.stats.attributes?.dexterity || 10,
+        constitution: character.stats.attributes?.constitution || 10,
+        intelligence: character.stats.attributes?.intelligence || 10,
+        wisdom: character.stats.attributes?.wisdom || 10,
+        charisma: character.stats.attributes?.charisma || 10,
+        attack: character.stats.getAttackBonus ? character.stats.getAttackBonus() : 0,
+        defense: character.stats.getDefenseBonus ? character.stats.getDefenseBonus() : 0,
         experience: character.stats.experience || 0
       } : null,
       inventory: character.inventory ? {

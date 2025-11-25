@@ -1056,8 +1056,8 @@ class MainMenu {
     menu.innerHTML = `
       <div class="menu-container">
         <div class="menu-header">
-          <h1>📼 Replay Viewer</h1>
-          <p>Watch recorded autonomous mode adventures</p>
+          <h1>� Replay Viewer</h1>
+          <p>Watch or continue from recorded adventures</p>
         </div>
 
         <div class="menu-content">
@@ -1084,7 +1084,7 @@ class MainMenu {
         menu.innerHTML = `
           <div class="menu-container">
             <div class="menu-header">
-              <h1>📼 Replay Viewer</h1>
+              <h1>� Replay Viewer</h1>
               <p>No replays available</p>
             </div>
 
@@ -1104,18 +1104,33 @@ class MainMenu {
         return;
       }
 
-      const replaysHTML = result.data.map(replay => `
-        <div class="theme-card" onclick="mainMenu.loadReplay('${replay}')">
-          <div class="theme-header">📼 ${replay}</div>
-          <p class="theme-description">Click to play this replay</p>
-        </div>
-      `).join('');
+      const replaysHTML = result.data.map(replay => {
+        const date = new Date(replay.modified).toLocaleString();
+        const sizeMB = (replay.size / 1024 / 1024).toFixed(2);
+        return `
+          <div class="theme-card">
+            <div class="theme-header">� ${replay.filename}</div>
+            <p class="theme-description">
+              Modified: ${date}<br>
+              Size: ${sizeMB} MB
+            </p>
+            <div class="replay-actions">
+              <button class="menu-button primary small" onclick="mainMenu.watchReplay('${replay.filename}')">
+                ▶️ Watch
+              </button>
+              <button class="menu-button secondary small" onclick="mainMenu.continueReplay('${replay.filename}')">
+                � Continue
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
 
       menu.innerHTML = `
         <div class="menu-container">
           <div class="menu-header">
-            <h1>📼 Replay Viewer</h1>
-            <p>Select a replay to watch</p>
+            <h1>� Replay Viewer</h1>
+            <p>Select a replay to watch or continue</p>
           </div>
 
           <div class="menu-content">
@@ -1132,11 +1147,67 @@ class MainMenu {
         </div>
       `;
     } catch (error) {
-      console.error('[MainMenu] Error loading replays:', error);
+      console.error('[MainMenu] Failed to load replays:', error);
       this.showError(`Failed to load replays: ${error.message}`);
     }
   }
 
+  /**
+   * Watch a replay (not yet implemented - would need replay player)
+   */
+  async watchReplay(filename) {
+    alert('Replay playback not yet implemented. Use "Continue" to start from the replay end point.');
+  }
+
+  /**
+   * Continue from a replay
+   */
+  async continueReplay(filename) {
+    this.currentStep = 'replay-continue';
+    const menu = document.getElementById('main-menu');
+
+    menu.innerHTML = `
+      <div class="menu-container">
+        <div class="menu-header">
+          <h1>� Continue from Replay</h1>
+          <p>Loading replay state...</p>
+        </div>
+
+        <div class="menu-content">
+          <div class="generation-progress">
+            <div class="progress-item">
+              <span class="progress-spinner">⏳</span>
+              <span>Loading ${filename}...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      console.log('[MainMenu] Continuing from replay:', filename);
+
+      // Continue from replay (uses end frame by default)
+      const result = await this.gameAPI.continueFromReplay(filename, -1);
+
+      if (result.success) {
+        console.log('[MainMenu] Replay continuation successful');
+
+        // Hide menu and show game
+        menu.style.display = 'none';
+
+        // Initialize app with the continued game (skip backend init since it's already done)
+        if (typeof app !== 'undefined' && app) {
+          await app.init(true); // Skip backend init
+        }
+      } else {
+        this.showError(`Failed to continue from replay: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('[MainMenu] Error continuing from replay:', error);
+      this.showError(`Failed to continue from replay: ${error.message}`);
+    }
+  }
   /**
    * Load and play a replay
    */

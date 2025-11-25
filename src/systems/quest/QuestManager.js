@@ -137,13 +137,19 @@ export class QuestManager {
         title: q.title,
         description: q.description,
         giver: q.giver,
+        status: q.state, // Map state to status for UI
+        state: q.state, // Also keep state for compatibility
+        type: q.metadata?.type || 'side', // Default to side quest
         progress: q.getProgress(),
         objectives: q.getVisibleObjectives()
       })),
       completed: this.getCompletedQuests().map(q => ({
         id: q.id,
         title: q.title,
-        giver: q.giver
+        giver: q.giver,
+        status: q.state,
+        state: q.state,
+        type: q.metadata?.type || 'side'
       }))
     };
   }

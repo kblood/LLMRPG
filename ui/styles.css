@@ -210,6 +210,20 @@ body {
   color: var(--accent-primary);
   border-bottom: 1px solid var(--border-color);
   padding-bottom: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.count-badge {
+  font-size: 0.8rem;
+  background: var(--accent-secondary);
+  color: var(--text-primary);
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-weight: normal;
+  min-width: 20px;
+  text-align: center;
 }
 
 .npc-list {
@@ -2657,4 +2671,19 @@ body {
     padding: 1rem;
     font-size: 1rem;
   }
+}
+
+
+/* Replay action buttons */
+.replay-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  justify-content: space-between;
+}
+
+.replay-actions .menu-button.small {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.9rem;
 }

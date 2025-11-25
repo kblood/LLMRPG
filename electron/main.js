@@ -55,9 +55,16 @@ async function initializeGameBackend() {
   gameBackend = new GameBackendIntegrated();
 
   // Set UI callback for state updates
+  let updateCount = 0;
   gameBackend.setUICallback((update) => {
     if (mainWindow && !mainWindow.isDestroyed()) {
+      updateCount++;
+      if (updateCount <= 5 || updateCount % 10 === 0) {
+        console.log(`[Main] Sending UI update #${updateCount}: ${update.type} ${update.eventType || ''}`);
+      }
       mainWindow.webContents.send('game:update', update);
+    } else {
+      console.log('[Main] Cannot send update - mainWindow is destroyed or null');
     }
   });
 

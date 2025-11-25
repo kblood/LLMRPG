@@ -21,7 +21,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload-integrated.js')
     },
     titleBarStyle: 'default'
   });
@@ -55,9 +55,16 @@ async function initializeGameBackend() {
   gameBackend = new GameBackendIntegrated();
 
   // Set UI callback for state updates
+  let uiUpdateCount = 0;
   gameBackend.setUICallback((update) => {
+    uiUpdateCount++;
+    if (uiUpdateCount <= 5 || uiUpdateCount % 10 === 0) {
+      console.log(`[Main] Sending UI update #${uiUpdateCount}: ${update.type} ${update.eventType || update.event?.type || ''}`);
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('game:update', update);
+    } else {
+      console.warn('[Main] Cannot send update - mainWindow is destroyed or null');
     }
   });
 

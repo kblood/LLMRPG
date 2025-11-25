@@ -1,324 +1,266 @@
-# Implementation Status - World Generation System
+# Implementation Status - Game Architecture Refactor
 
-**Last Updated**: November 19, 2025
+## Completed ✅
 
----
+### Phase 1: Decouple UI from Game Logic
+- ✅ **GameService** - Pure game logic layer without UI dependencies
+- ✅ **StatePublisher** - Event-driven state distribution system
+- ✅ **StandaloneAutonomousGame** - Headless autonomous game loop
+- ✅ **GameBackendIntegrated** - Electron integration layer
+- ✅ **IPC Integration** - Main process handles game backend, renderer receives updates
 
-## ✅ Completed (Phase 1A & 1B)
+### Phase 2: Replay System
+- ✅ **Replay Continuation** - Can load replay final state as new game session  
+- ✅ **ReplayContinuation** helper class for seamless transitions
 
-### Core World Generation
+### Combat & Exploration
+- ✅ **CombatSystem** - Combat resolution with turn-based mechanics
+- ✅ **CombatEncounterSystem** - Enemy generation and encounter triggers
+- ✅ **Travel System** - Protagonist can travel between locations
+- ✅ **Location Discovery** - Locations are discovered and tracked
 
-**WorldGenerator Class** (`src/systems/world/WorldGenerator.js`)
-- ✅ Procedural world generation from scratch
-- ✅ Starting town generation via GM/LLM
-- ✅ Sparse location generation (10+ locations) with narrative fuel
-- ✅ NPC generation (7+ NPCs) with knowledge systems
-- ✅ NPC relationship generation
-- ✅ Main quest generation with guidance
-- ✅ Town rumors generation
-- ✅ Player character creation
-- ✅ Grid-based coordinate system
-- ✅ Deterministic with seed support
+## Partially Complete ⚠️
 
-### Narrative Fuel System
+### UI State Updates
+- ✅ State is being published from game to UI via StatePublisher
+- ✅ IPC bridge sends updates to renderer
+- ✅ Game log shows dialogue and basic actions
+- ⚠️ **Quest panel not updating** - `updateQuestsDisplay()` is being called but quests don't show
+- ⚠️ **Location panel not updating** - `updateLocationsDisplay()` needs full implementation
+- ✅ Time display works
+- ✅ Character stats update (HP, stamina, etc.)
+- ✅ Frame counter updates
 
-**Generated for Each Location**:
-- ✅ Common knowledge (facts most NPCs know)
-- ✅ Rumors (with likelihood scores)
-- ✅ Specialists (which NPCs know most)
-- ✅ Quest hooks (potential adventure threads)
+### Combat Display
+- ✅ Combat encounters are generated
+- ✅ Combat executes with narration
+- ⚠️ **Combat often times out** - Needs investigation (20 rounds with no winner)
+- ✅ Combat start/end messages show in log
+- ⚠️ Individual combat rounds not displayed in UI
 
-### NPC Knowledge System
+## Issues to Fix 🔧
 
-**Each NPC Has**:
-- ✅ Knowledge specialties (topics/locations)
-- ✅ Rumors they've heard
-- ✅ Relationships with other NPCs
-- ✅ Current concern/mood
-- ✅ Personality traits (6-dimensional)
+### 1. Quest Panel Not Updating
+**Problem**: Quests are being created in the backend and included in state updates, but the quest panel in UI remains empty.
 
-### Data Structures Enhanced
+**Evidence**:
+- Console logs show: `[Quest] Created: Unravel AI Mysteries`
+- State contains `quests.active` array
+- `updateQuestsDisplay()` is being called
+- But `#quest-list` element shows "No active quests"
 
-- ✅ Location class supports narrative fuel via customProperties
-- ✅ Character class supports knowledge system
-- ✅ Quest class with guidance system
-- ✅ Grid coordinate system for travel time calculation
+**Possible Causes**:
+- Quest objects might be missing required fields (title, status, type)
+- HTML rendering might have issues
+- Quest list element might be getting cleared by another function
 
-### Testing
-
-- ✅ Test script created (`test-world-generation.js`)
-- ✅ npm script added (`npm run test:worldgen`)
-
-### Contextual UI Commands (Phase 1B)
-
-**ContextualCommands Class** (`src/ui/ContextualCommands.js`)
-- ✅ Enhanced `look` command
-  - Shows current location description
-  - Lists NPCs present with moods and concerns
-  - Displays active quests with progress
-  - Shows nearby locations with travel times and rumors
-- ✅ Location-aware `npcs` command
-  - NPCs at current location (detailed)
-  - NPCs nearby (brief)
-  - Quest-related NPCs
-- ✅ `quests` command with guidance
-  - Active and completed quests
-  - Progress indicators (percentage)
-  - Objectives with checkboxes
-  - Next steps (where to go, who to talk to)
-- ✅ `locations` command
-  - Discovered locations
-  - Travel times and distances
-  - Directions (compass)
-  - Known information/rumors
-
-**Play Script Integration** (`play-generated-world.js`)
-- ✅ Full game loop with world generation
-- ✅ Contextual commands integrated
-- ✅ Talk to NPCs (with GM narration)
-- ✅ Travel between locations
-- ✅ Natural language input to GM
-- ✅ Help system
-- ✅ npm script added (`npm run play:gen`)
-
-**Additional Testing**
-- ✅ Contextual commands test script (`test-contextual-commands.js`)
-- ✅ npm script added (`npm run test:commands`)
-- ✅ All commands verified working
-
-### Phase 1C: NPC Context Integration
-
-**DialogueContextBuilder Class** (`src/systems/dialogue/DialogueContextBuilder.js`)
-- ✅ Extracts NPC knowledge (specialties, rumors, secrets)
-- ✅ Extracts location narrative fuel
-- ✅ Builds quest context for NPCs
-- ✅ Includes relationship levels
-- ✅ Generates context-rich dialogue prompts
-- ✅ NPCs reference their specialties when asked
-- ✅ NPCs share rumors naturally
-- ✅ Quest-aware dialogue (NPCs know about relevant quests)
-
-**QuestProgressionManager Class** (`src/systems/quest/QuestProgressionManager.js`)
-- ✅ Detects objective completion through events
-- ✅ "Talk to NPC" objectives auto-complete
-- ✅ "Visit location" objectives auto-complete
-- ✅ "Learn about X" objectives track dialogue topics
-- ✅ Dynamic quest guidance updates
-- ✅ Quest rewards system
-- ✅ Event-driven architecture (EventBus integration)
-
-**LocationExpansionManager Class** (`src/systems/world/LocationExpansionManager.js`)
-- ✅ Progressive detail levels (sparse → partial → full)
-- ✅ Sparse: Name, coordinates, narrative fuel
-- ✅ Partial: + Description, points of interest (when asked about)
-- ✅ Full: + NPCs, items, secrets (when visited)
-- ✅ GM-driven content generation
-- ✅ Content caching to avoid regeneration
-
-**Integration**
-- ✅ DialogueContextBuilder integrated into play-generated-world.js
-- ✅ NPCs use knowledge in conversations
-- ✅ Quest context shown in dialogue
-- ✅ Narrative fuel available to NPCs
-
-**Testing**
-- ✅ Comprehensive Phase 1C test script (`test-phase-1c.js`)
-- ✅ npm script added (`npm run test:phase1c`)
-- ✅ All integration tests passing
-
----
-
-## 🔄 Phase 2 - Progressive World Detail (Next Week)
-
-1. **Location expansion system**
-   - Partial detail on inquiry
-   - Full detail on visit
-   - Generate connected locations
-   - Generate NPCs/items/secrets
-
-2. **Dynamic generation during gameplay**
-   - Quest generation triggers
-   - Random encounters
-   - Discovery events
-   - Dungeon generation
-
-3. **World state tracking**
-   - Time advancement
-   - Weather changes
-   - NPC schedules
-   - Event propagation
-
----
-
-## 📊 Current Capabilities
-
-### What Works Now
-
+**Fix Needed**:
 ```javascript
-// Generate complete starting world
-const worldGen = new WorldGenerator(gameMaster, { seed: 12345 });
-const world = await worldGen.generateWorld({
-  playerName: 'Aldric',
-  difficulty: 'normal'
-});
-
-// World contains:
-// - 1 starting town (fully detailed)
-// - 10+ sparse locations (with narrative fuel)
-// - 7+ NPCs (with knowledge & relationships)
-// - 1 main quest (with objectives & guidance)
-// - Player character
-// - Grid coordinates for all locations
+// In app.js updateQuestsDisplay()
+// Add validation and better error handling
+// Ensure quest objects have all required fields
+// Add defensive checks for undefined values
 ```
 
-### Example Output
+### 2. Location Panel Not Updating
+**Problem**: Locations are discovered in backend but world locations panel shows "Exploring..."
 
-```
-🏰 Millhaven (mill town)
-   Population: 450
-   Industry: Grain milling
-   Situation: Grain shipments going missing
+**Evidence**:
+- Console shows: `[GameSession] Discovered location: Dark Forest`
+- State contains `location.discovered` array
+- State contains `location.database` with location objects
+- But `#world-locations` element not populated
 
-👥 NPCs:
-   • Gareth (Master Miller) - worried about thefts
-     Knows about: Milling, Grain trade
-     Rumor: Thefts are organized
+**Current Status**:
+- Added `updateLocationsDisplay()` with full implementation
+- Needs testing to verify it works
 
-   • Lyssa (Grain Merchant) - secretive
-     Knows about: Trade routes, Whisperwood Forest
-     Rumor: Rival town sabotaging Millhaven
+**Fix**: Already implemented in latest code, needs verification.
 
-📜 Main Quest: "The Shadow Trade"
-   Objectives:
-   1. Talk to Gareth about missing grain
-   2. Investigate the mill
-   3. Question townsfolk
+### 3. Combat Timeout Issue
+**Problem**: Combat frequently ends in "timeout" after 20 rounds with no winner.
 
-🗺️ Locations:
-   Whisperwood Forest (north, 8km)
-   • Known: Strange lights at night
-   • Rumor: Hermit lives deep in forest
-   • Hook: Missing hunters last seen there
-```
+**Observations**:
+- Combat logs show all 20 rounds executing
+- Combat narration is generated each round
+- No clear winner emerges
 
----
+**Possible Causes**:
+1. Damage not being dealt (attack calculations broken)
+2. HP not decreasing (takeDamage not working)
+3. Victory/defeat conditions not checking properly (isAlive/isDead)
+4. Enemies regenerating HP somehow
 
-## 🧪 Testing
+**Investigation Needed**:
+- Add logging to CombatManager._processAttack() to show damage dealt
+- Log HP values before and after each attack
+- Verify isAlive() and isDead() methods work correctly
+- Check if defensive stats are too high (all attacks missing/blocked)
 
-### Run World Generation Test
+### 4. Combat Round Display in UI
+**Problem**: Individual combat rounds and actions are not shown in the game log.
 
+**Current**: Only start/end messages shown ("⚔️ Combat! Encountered Bandit", "⚔️ Combat ended in timeout")
+
+**Desired**: Show each round:
+- "Round 1: TestHero attacks Bandit for 12 damage"
+- "Round 1: Bandit attacks TestHero for 8 damage"
+- "Round 2: ..."
+
+**Fix Needed**:
+- Subscribe to 'combat:turn_executed' events
+- Add combat round narration to game log
+- Show HP changes during combat
+
+## Testing Needed 🧪
+
+### Unit Tests
+- ✅ StatePublisher subscription/publishing
+- ✅ GameService action execution
+- ⚠️ Combat damage calculation
+- ⚠️ Character death detection
+
+### Integration Tests
+- ⚠️ Full game session with UI updates
+- ⚠️ Quest creation → UI display
+- ⚠️ Location discovery → UI display
+- ⚠️ Combat → UI combat log
+- ⚠️ Travel between locations
+
+### End-to-End Tests
+- ⚠️ Start game → autonomous mode → combat → victory/defeat → quest completion
+- ⚠️ Replay recording → playback → continuation
+
+## Next Steps 📋
+
+### Immediate Priorities (Critical Path)
+
+1. **Fix Quest UI Display** (Highest Priority)
+   - Debug why quests.active array isn't rendering
+   - Verify quest objects have required fields
+   - Test with manual quest creation
+
+2. **Fix Combat Timeout** (High Priority)
+   - Add detailed combat logging
+   - Verify damage is being dealt
+   - Check HP decrease after attacks
+   - Ensure isAlive()/isDead() work correctly
+
+3. **Verify Location UI Display** (Medium Priority)
+   - Test that new `updateLocationsDisplay()` code works
+   - Ensure location database is populated correctly
+   - Verify discovered array contains location IDs
+
+4. **Add Combat Round Display** (Medium Priority)
+   - Subscribe to combat turn events
+   - Display round-by-round actions in game log
+   - Show damage numbers and HP changes
+
+### Phase 3 Completion
+
+Once above issues are fixed, complete Phase 3:
+
+- ✅ Combat system functional
+- ✅ Exploration working (travel between locations)
+- ⚠️ Combat displays properly in UI
+- ⚠️ Quests display and update in UI
+- ⚠️ Locations display and update in UI
+- ⚠️ Full integration test passes
+
+## How to Test
+
+### Manual Testing
 ```bash
-npm run test:worldgen
+# Run the app
+npm run dev
+
+# Start a new game
+# Watch console for errors
+# Check quest panel (right side)
+# Check world locations panel (right side)
+# Watch for combat encounters
+# Verify combat doesn't timeout every time
 ```
 
-This will:
-1. Initialize Game Master with Ollama
-2. Generate complete world from scratch
-3. Display all generated content
-4. Verify narrative fuel and knowledge systems
-
-### Expected Test Output
-
-```
-✅ TEST PASSED - World generation successful!
-
-Verification:
-  ✓ Starting town generated: Millhaven
-  ✓ NPCs created: 7
-  ✓ Locations created: 11
-  ✓ Main quest generated: The Shadow Trade
-  ✓ Player created: Aldric
-  ✓ Narrative fuel generated for 10 locations
-  ✓ 7 NPCs have knowledge specialties
-```
-
----
-
-## 📝 Design Documents
-
-- **WORLD_GENERATION_DESIGN.md** - Complete design for procedural generation
-- **NARRATIVE_CONTEXT_DESIGN.md** - NPC knowledge and UI design
-- **DESIGN_ANALYSIS.md** - Original requirements analysis
-- **CURRENT_PRIORITIES.md** - Implementation roadmap
-
----
-
-## 🎮 Integration Plan
-
-### Next: Integrate with Existing Game
-
-1. Replace static location loading with WorldGenerator
-2. Update play scripts to use generated world
-3. Implement contextual commands
-4. Connect dialogue system to NPC knowledge
-5. Enable progressive detail expansion
-
-### Timeline
-
-- **Phase 1A**: Core generation ✅ (COMPLETE)
-- **Phase 1B**: Contextual UI ✅ (COMPLETE)
-- **Phase 1C**: NPC context integration (NEXT)
-- **Phase 2**: Progressive expansion & polish
-
----
-
-## 🚀 How to Use
-
-### Play with Generated World
-
+### Automated Testing
 ```bash
-npm run play:gen
+# Run existing tests
+npm test
+
+# Run specific integration test
+node tests/test-state-publisher-integration.js
+
+# Run combat test (once fixed)
+node tests/test-combat-detailed.js
 ```
 
-This will:
-1. Prompt for your character name
-2. Generate a complete world (town, NPCs, quests, locations)
-3. Start an interactive text-based RPG
-4. Provide contextual commands (look, npcs, quests, locations, talk, travel)
-
-### Test World Generation
-
-```bash
-npm run test:worldgen
-```
-
-Generates and displays a complete world with all details.
-
-### Test Contextual Commands
-
-```bash
-npm run test:commands
-```
-
-Tests all UI commands without interactive gameplay.
-
-### Programmatic Usage
-
+### Debug Logging
+Add these to track issues:
 ```javascript
-import { WorldGenerator } from './src/systems/world/WorldGenerator.js';
-import { ContextualCommands } from './src/ui/ContextualCommands.js';
-import { GameMaster } from './src/systems/GameMaster.js';
+// In app.js handleStateUpdate()
+console.log('[App] Quest count:', state.quests?.active?.length);
+console.log('[App] First quest:', state.quests?.active?.[0]);
+console.log('[App] Locations discovered:', state.location?.discovered?.length);
+console.log('[App] Location database:', state.location?.database?.length);
 
-// Initialize
-const gm = new GameMaster();
-const worldGen = new WorldGenerator(gm);
-
-// Generate world
-const world = await worldGen.generateWorld({
-  playerName: 'Aldric',
-  difficulty: 'normal'
-});
-
-// Use contextual commands
-const commands = new ContextualCommands(world);
-console.log(commands.look());
-console.log(commands.npcs());
-console.log(commands.quests());
-console.log(commands.locations());
+// In CombatManager._processAttack()
+console.log('[Combat] Damage dealt:', damageResult.damageDealt);
+console.log('[Combat] Target HP after:', target.character.stats.currentHP);
+console.log('[Combat] Target alive:', target.character.stats.isAlive());
 ```
 
----
+## Architecture Summary
 
-**Status**: Phase 1A, 1B & 1C Complete ✅
-**Next**: Phase 2 - Progressive World Detail
-**Focus**: Location expansion during gameplay, dynamic generation
+```
+┌─────────────────┐
+│   UI (Electron) │
+│   - Renderer    │
+└────────┬────────┘
+         │ IPC events
+         │
+┌────────▼─────────────────┐
+│ GameBackendIntegrated    │
+│ - Subscribes to State    │
+│ - Forwards to UI         │
+└────────┬─────────────────┘
+         │
+┌────────▼─────────────────┐
+│ StandaloneAutonomousGame │
+│ - Autonomous loop        │
+│ - Uses GameService       │
+└────────┬─────────────────┘
+         │
+┌────────▼─────────────────┐
+│ GameService              │
+│ - Pure game logic        │
+│ - No UI dependencies     │
+└────────┬─────────────────┘
+         │
+┌────────▼─────────────────┐
+│ GameSession              │
+│ - Game state             │
+│ - Characters, locations  │
+│ - Quests, dialogue       │
+└──────────────────────────┘
+```
+
+## Key Files
+
+- `src/services/GameService.js` - Core game logic
+- `src/services/StatePublisher.js` - State distribution
+- `src/services/StandaloneAutonomousGame.js` - Autonomous loop
+- `electron/GameBackendIntegrated.js` - Electron integration
+- `ui/app.js` - UI rendering and event handling
+- `src/systems/combat/CombatSystem.js` - Combat mechanics
+- `src/systems/combat/CombatManager.js` - Combat state management
+
+## Conclusion
+
+The core architecture is solid and working. The game runs autonomously, state is published correctly, and the IPC bridge successfully delivers updates to the UI. The remaining issues are primarily in the UI display logic and combat balance tuning.
+
+**Estimated time to complete Phase 3**: 4-6 hours
+- 2 hours: Fix quest/location UI display
+- 2 hours: Debug and fix combat timeout
+- 1 hour: Add combat round display
+- 1 hour: Integration testing
+
