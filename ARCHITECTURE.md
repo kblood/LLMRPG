@@ -482,6 +482,139 @@ character.executePlan(plan);
 
 **When Needed**: Autonomous AI protagonist
 
+## UI-Backend Communication (Electron Integration)
+
+**Status**: ✅ Implemented with StatePublisher
+
+### Communication Architecture
+
+The game uses a **unidirectional, event-driven** architecture for UI updates:
+
+```
+Game Logic (Core)              Electron Bridge              UI (Renderer)
+┌──────────────────────────┐   ┌──────────────────────┐   ┌──────────────┐
+│ GameService              │   │ GameBackendIntegrated│   │ app.js       │
+│ - tick()                 │   │ - Subscribes to      │   │ - Displays   │
+│ - executeAction()        │──→│   StatePublisher     │───→│   state      │
+│ - startConversation()    │   │ - Routes updates via │   │ - Updates    │
+│ - addConversationTurn()  │   │   uiCallback         │   │   DOM        │
+└──────────────────────────┘   └──────────────────────┘   └──────────────┘
+         ↓
+┌──────────────────────────┐
+│ StatePublisher (Singleton)
+│ - Pure observer pattern
+│ - Framework-agnostic
+│ - Publishes: (state, eventType)
+└──────────────────────────┘
+```
+
+### Data Flow
+
+#### Command Path (UI → Game)
+```
+UI clicks button (gameAPI.executeAction)
+    ↓
+preload.js (contextBridge)
+    ↓
+main-integrated.js (IPC handler)
+    ↓
+GameBackendIntegrated.executeAction()
+    ↓
+GameService.executeAction()
+    ↓
+Returns result immediately
+```
+
+#### State Update Path (Game → UI)
+```
+GameService.tick() or GameService.executeAction()
+    ↓
+statePublisher.publish(gameState, eventType, metadata)
+    ↓
+GameBackendIntegrated subscriber receives update
+    ↓
+GameBackendIntegrated.uiCallback({type, eventType, state, ...})
+    ↓
+main.js sends: webContents.send('game:update', update)
+    ↓
+preload.js: window.gameAPI.onGameUpdate(callback)
+    ↓
+app.js: handleStateUpdate(state, eventType)
+    ↓
+DOM updates with latest state
+```
+
+### Event Types Published
+
+| Event Type | When Fired | Data Sent |
+|------------|-----------|-----------|
+| `FRAME_UPDATE` | Every game tick | Full state, deltaTime |
+| `ACTION_EXECUTED` | After player/NPC action | Action type, result |
+| `DIALOGUE_STARTED` | Conversation begins | conversationId, npcId |
+| `DIALOGUE_LINE` | New dialogue added | conversationId, text |
+| `DIALOGUE_ENDED` | Conversation ends | conversationId |
+| `COMBAT_STARTED` | Combat encounter | Enemies, location |
+| `COMBAT_ENDED` | Combat resolves | Outcome, XP, rewards |
+| `QUEST_CREATED` | New quest discovered | Quest data |
+| `QUEST_UPDATED` | Quest progress changes | Quest data |
+| `QUEST_COMPLETED` | Quest finished | Quest data |
+| `LOCATION_DISCOVERED` | New location found | Location data |
+| `LOCATION_CHANGED` | Player moves | Location id, name |
+
+### Key Components
+
+**StatePublisher** (`src/services/StatePublisher.js`):
+- Pure observer pattern (no Electron dependency)
+- Maintains subscriber list
+- Publishes state after each game update
+- Returns full game state snapshot
+
+**GameService** (`src/services/GameService.js`):
+- Publishes to StatePublisher after every state change
+- Calls: `statePublisher.publish(gameState, eventType, metadata)`
+- No knowledge of UI or Electron
+
+**GameBackendIntegrated** (`electron/ipc/GameBackendIntegrated.js`):
+- Subscribes to StatePublisher for all updates
+- Routes updates to Electron via `uiCallback()`
+- Implements all IPC handler methods
+- Manages game initialization and cleanup
+
+**main-integrated.js** (`electron/main-integrated.js`):
+- Creates BrowserWindow
+- Sets up uiCallback to send updates to renderer
+- Routes `webContents.send('game:update', update)` to UI
+
+**app.js** (`ui/app.js`):
+- Listens for `gameAPI.onGameUpdate()` events
+- Processes state updates via `handleStateUpdate()`
+- Updates DOM elements based on game state
+
+### Design Benefits
+
+✅ **Unidirectional Flow**: UI never manipulates game state directly
+✅ **Loose Coupling**: Game logic doesn't know about UI
+✅ **Framework Agnostic**: StatePublisher has no Electron dependency
+✅ **Performance**: Batched updates via state snapshots
+✅ **Debuggable**: All state changes flow through StatePublisher
+✅ **Testable**: StatePublisher can be tested independently
+
+### Integration Checklist
+
+- ✅ StatePublisher imports in GameService
+- ✅ statePublisher.publish() calls after tick()
+- ✅ statePublisher.publish() calls after startConversation()
+- ✅ statePublisher.publish() calls after addConversationTurn()
+- ✅ statePublisher.publish() calls after endConversation()
+- ✅ statePublisher.publish() calls after executeAction()
+- ✅ GameBackendIntegrated subscribes to StatePublisher
+- ✅ GameBackendIntegrated routes updates via uiCallback
+- ✅ main.js sends updates to renderer via webContents.send()
+- ✅ preload.js exposes onGameUpdate listener
+- ✅ app.js registers listener and handles updates
+
+---
+
 ### Web UI (Not Implemented)
 
 **Concept**:

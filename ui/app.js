@@ -433,36 +433,54 @@ class OllamaRPGApp {
       hasLocation: !!state.location,
       locationDiscovered: state.location?.discovered?.length || 0
     });
-    
+
     // Update status to show we're receiving updates
     if (eventType === 'frame_update') {
       this.setStatus(`Running... Frame ${state.frame}`);
     }
-    
+
     // Update time display
     if (state.time) {
       this.updateTimeDisplay(state.time);
     }
-    
+
     // Update protagonist if present
     if (state.characters && state.characters.protagonist) {
       this.updateProtagonistDisplay(state.characters.protagonist);
     }
-    
-    // Update quests
-    if (state.quests && state.quests.active) {
-      this.updateQuestsDisplay(state.quests.active);
+
+    // Update quests - ALWAYS call, even if empty
+    if (state.quests) {
+      console.log('[App] ✓ state.quests exists');
+      console.log('[App] ✓ state.quests.active:', state.quests.active);
+      console.log('[App] ✓ Calling updateQuestsDisplay with', state.quests.active?.length || 0, 'quests');
+      this.updateQuestsDisplay(state.quests.active || []);
+    } else {
+      console.warn('[App] ✗ state.quests is missing!');
     }
-    
-    // Update locations (discoveries)
+
+    // Update locations (discoveries) - ALWAYS call
     if (state.location) {
+      console.log('[App] ✓ state.location exists, discovered:', state.location.discovered?.length || 0);
       this.updateLocationsDisplay(state.location);
+    } else {
+      console.warn('[App] ✗ state.location is missing!');
     }
     
     // Route based on event type
     switch (eventType) {
       case 'frame_update':
         // General frame tick - already handled above
+        // Periodically refresh UI elements in case they're out of sync
+        if (state.frame % 5 === 0) {
+          console.log('[App] Periodic refresh at frame', state.frame);
+          if (state.quests) {
+            this.updateQuestsDisplay(state.quests.active || []);
+          }
+          if (state.location) {
+            this.updateLocationsDisplay(state.location);
+          }
+        }
         break;
         
       case 'action_executed':
@@ -496,7 +514,12 @@ class OllamaRPGApp {
       case 'quest_created':
       case 'quest_updated':
       case 'quest_completed':
-        // Already handled by updateQuestsDisplay above
+        // Explicitly refresh quests on quest events
+        console.log('[App] Quest event:', eventType);
+        if (state.quests) {
+          console.log('[App] Refreshing quests due to quest event, count:', state.quests.active?.length || 0);
+          this.updateQuestsDisplay(state.quests.active || []);
+        }
         break;
         
       case 'location_discovered':
@@ -616,36 +639,57 @@ class OllamaRPGApp {
    * Update quests display from state
    */
   updateQuestsDisplay(quests) {
-    console.log('[App] updateQuestsDisplay called with:', quests);
-    if (!quests) return;
-    
-    // Count active quests
-    const activeCount = quests.filter(q => q.status === 'active').length;
-    const questCountEl = document.getElementById('quest-count');
-    console.log('[App] Active quests:', activeCount, 'element:', questCountEl);
-    if (questCountEl) {
-      questCountEl.textContent = activeCount;
+    console.log('[App] updateQuestsDisplay called');
+    console.log('[App] - quests param type:', typeof quests);
+    console.log('[App] - quests param value:', quests);
+    console.log('[App] - quests count:', quests?.length || 0);
+    console.log('[App] - quest sample:', quests?.[0]);
+
+    if (!quests || quests.length === 0) {
+      console.log('[App] No quests to display');
+      // Clear quest display
+      const questCountEl = document.getElementById('quest-count');
+      if (questCountEl) {
+        questCountEl.textContent = '0';
+        console.log('[App] Set quest count to 0');
+      }
+
+      const questListEl = document.getElementById('quest-list');
+      if (questListEl) {
+        questListEl.innerHTML = '<p class="no-quests">No active quests</p>';
+        console.log('[App] Set quest list to empty message');
+      }
+      return;
     }
-    
+
+    // Update quest count
+    const questCountEl = document.getElementById('quest-count');
+    if (questCountEl) {
+      questCountEl.textContent = quests.length;
+      console.log('[App] ✓ Updated quest count to:', quests.length);
+    }
+
     // Update quest list panel
     const questListEl = document.getElementById('quest-list');
-    console.log('[App] Quest list element:', questListEl, 'quests length:', quests.length);
-    if (questListEl && quests.length > 0) {
-      // Filter to active quests only
-      const activeQuests = quests.filter(q => q.status === 'active');
-      console.log('[App] Rendering', activeQuests.length, 'active quests');
-      
-      if (activeQuests.length > 0) {
-        questListEl.innerHTML = activeQuests.map(quest => `
-          <div class="quest-item ${quest.type === 'main' ? 'quest-main' : 'quest-side'}">
-            <div class="quest-title">${quest.title}</div>
-            <div class="quest-description">${quest.description || ''}</div>
-          </div>
-        `).join('');
-        console.log('[App] Quest list updated with HTML');
-      } else {
-        questListEl.innerHTML = '<p class="no-quests">No active quests</p>';
-      }
+    if (questListEl) {
+      console.log('[App] ✓ Rendering', quests.length, 'quests');
+      const html = quests.map(quest => {
+        console.log('[App]   Quest:', {
+          title: quest.title,
+          type: quest.type,
+          id: quest.id
+        });
+        return `
+        <div class="quest-item ${quest.type === 'main' ? 'quest-main' : 'quest-side'}">
+          <div class="quest-title">${quest.title || 'Unnamed Quest'}</div>
+          <div class="quest-description">${quest.description || ''}</div>
+        </div>
+      `;
+      }).join('');
+      questListEl.innerHTML = html;
+      console.log('[App] ✓ Quest list HTML updated with', quests.length, 'items');
+    } else {
+      console.warn('[App] ✗ quest-list element not found!');
     }
     
     // Log new quests to game log
@@ -668,7 +712,7 @@ class OllamaRPGApp {
   updateLocationsDisplay(locationState) {
     console.log('[App] updateLocationsDisplay called with:', locationState);
     if (!locationState) return;
-    
+
     // Count discovered locations
     const discoveredCount = locationState.discovered?.length || 0;
     const locationCountEl = document.getElementById('location-count');
@@ -676,22 +720,29 @@ class OllamaRPGApp {
     if (locationCountEl) {
       locationCountEl.textContent = discoveredCount;
     }
-    
+
     // Update world locations panel
     const worldLocationsEl = document.getElementById('world-locations');
     console.log('[App] World locations element:', worldLocationsEl);
     if (worldLocationsEl && locationState.database && locationState.discovered) {
-      const discoveredData = locationState.database.filter(loc => 
+      // Ensure database is an array (handle both array and object formats)
+      const dbArray = Array.isArray(locationState.database)
+        ? locationState.database
+        : (locationState.database && typeof locationState.database === 'object'
+            ? Object.values(locationState.database)
+            : []);
+
+      const discoveredData = dbArray.filter(loc =>
         locationState.discovered.includes(loc.id)
       );
-      
+
       console.log('[App] Discovered location data:', discoveredData.length);
-      
+
       if (discoveredData.length > 0) {
         worldLocationsEl.innerHTML = discoveredData.map(loc => {
           const isVisited = locationState.visited?.includes(loc.id);
           const isCurrent = locationState.current === loc.id;
-          
+
           return `
             <div class="location-item ${isCurrent ? 'current-location' : ''} ${isVisited ? 'visited' : 'unvisited'}">
               <div class="location-name">${isCurrent ? '➤ ' : ''}${loc.name}</div>
@@ -795,13 +846,16 @@ class OllamaRPGApp {
       if (updateCount <= 5 || updateCount % 10 === 0) {
         console.log(`[App] Game update #${updateCount} received:`, update.type, update.eventType || update.event?.type);
       }
-      
+
       if (update.type === 'state_update') {
+        console.log('[App] Processing state_update, state keys:', update.state ? Object.keys(update.state) : 'NO STATE');
         // Full state update with eventType
         this.handleStateUpdate(update.state, update.eventType);
       } else if (update.type === 'game_event') {
         // Broadcast event
         this.handleGameEvent(update.event);
+      } else {
+        console.warn('[App] Unknown update type:', update.type);
       }
     });
     
@@ -919,21 +973,25 @@ class OllamaRPGApp {
       this.showConversationPanel(data);
     });
 
-    // Message received
-    this.gameAPI.onAutonomousMessage((data) => {
-      console.log('[App] Message from', data.speakerName, ':', data.text);
-      this.addMessageToHistory(data);
-    });
+    // Message received (DISABLED - handled by unified state update)
+    // NOTE: Dialogue messages are now handled by unified state update listener in handleStateUpdate()
+    // This legacy listener is disabled to prevent duplicate dialogue entries
+    // this.gameAPI.onAutonomousMessage((data) => {
+    //   console.log('[App] Message from', data.speakerName, ':', data.text);
+    //   this.addMessageToHistory(data);
+    // });
 
     // Dialogue line received (from autonomous conversations)
-    this.gameAPI.onAutonomousDialogueLine?.((data) => {
-      console.log('[App] Dialogue line from', data.speakerName, ':', data.text);
-      this.addMessageToHistory({
-        speakerName: data.speakerName,
-        speaker: data.speakerId,
-        text: data.text
-      });
-    });
+    // NOTE: Now handled by unified state update listener in handleStateUpdate() case 'dialogue_line'
+    // This legacy listener is disabled to prevent duplicate dialogue entries
+    // this.gameAPI.onAutonomousDialogueLine?.((data) => {
+    //   console.log('[App] Dialogue line from', data.speakerName, ':', data.text);
+    //   this.addMessageToHistory({
+    //     speakerName: data.speakerName,
+    //     speaker: data.speakerId,
+    //     text: data.text
+    //   });
+    // });
 
     // Conversation ended - DON'T CLEAR the dialogue history, keep it as event log
     this.gameAPI.onAutonomousConversationEnd((data) => {

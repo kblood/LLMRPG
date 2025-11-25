@@ -51,10 +51,27 @@ function createWindow() {
 }
 
 // Initialize game backend
+// NOTE: Callback is NOT set here - it's set in setupUICallback() after window is created
 async function initializeGameBackend() {
   gameBackend = new GameBackendIntegrated();
 
-  // Set UI callback for state updates
+  // Initialize theme persistence
+  themePersistence = new ThemePersistence();
+  console.log('[Main] Theme persistence initialized');
+
+  // Set up IPC handlers
+  setupIPCHandlers();
+
+  console.log('[Main] Game backend initialized');
+}
+
+/**
+ * Set up the UI callback after window is created
+ * This is called AFTER createWindow() to ensure mainWindow is ready
+ * This is CRITICAL - the callback captures mainWindow reference
+ */
+function setupUICallback() {
+  console.log('[Main] Setting up UI callback for state updates...');
   let uiUpdateCount = 0;
   gameBackend.setUICallback((update) => {
     uiUpdateCount++;
@@ -67,15 +84,7 @@ async function initializeGameBackend() {
       console.warn('[Main] Cannot send update - mainWindow is destroyed or null');
     }
   });
-
-  // Initialize theme persistence
-  themePersistence = new ThemePersistence();
-  console.log('[Main] Theme persistence initialized');
-
-  // Set up IPC handlers
-  setupIPCHandlers();
-
-  console.log('[Main] Game backend initialized');
+  console.log('[Main] UI callback set');
 }
 
 function setupIPCHandlers() {
@@ -289,12 +298,20 @@ function setupIPCHandlers() {
 
 // App lifecycle
 app.whenReady().then(async () => {
+  // 1. Initialize backend first (IPC handlers, theme, etc.)
   await initializeGameBackend();
+
+  // 2. Create window
   createWindow();
+
+  // 3. CRITICAL: Set up UI callback AFTER window exists
+  // The callback closure must capture the valid mainWindow reference
+  setupUICallback();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+      setupUICallback(); // Also set up callback if window is recreated
     }
   });
 });

@@ -12,8 +12,17 @@
  * - Complete state snapshot support
  * - Replay-friendly architecture
  *
+ * State Updates & UI Integration:
+ * - GameService publishes all state changes via StatePublisher
+ * - StatePublisher is framework-agnostic and drives the UI
+ * - Every state-changing method publishes appropriate event types
+ * - Subscribers receive (state, eventType, metadata) tuples
+ *
  * @class GameService
  */
+
+import { statePublisher, EVENT_TYPES } from './StatePublisher.js';
+
 export class GameService {
   /**
    * Create a new GameService
@@ -92,6 +101,17 @@ export class GameService {
       this.takeSnapshot();
     }
 
+    // Publish frame update to StatePublisher for UI
+    try {
+      statePublisher.publish(
+        this.getGameState(),
+        EVENT_TYPES.FRAME_UPDATE,
+        { deltaTime }
+      );
+    } catch (error) {
+      console.error('[GameService] Failed to publish frame update:', error);
+    }
+
     return timeState;
   }
 
@@ -159,14 +179,19 @@ export class GameService {
         current: session.currentLocation,
         discovered: Array.from(session.discoveredLocations),
         visited: Array.from(session.visitedLocations),
-        database: this._serializeLocationDatabase()
+        database: Array.from(session.locationDatabase.values()) // Convert to array for UI
       },
 
       // Quests
-      quests: {
-        active: session.getActiveQuests(),
-        stats: session.questManager.getStats()
-      },
+      // NOTE: Use getQuestsForDisplay() which returns properly formatted quests
+      quests: (() => {
+        const questsForDisplay = session.questManager.getQuestsForDisplay();
+        const stats = session.questManager.getStats();
+        return {
+          active: questsForDisplay.active, // Array of quest objects with all details
+          stats: stats
+        };
+      })(),
 
       // Dialogue
       dialogue: {
@@ -251,11 +276,22 @@ export class GameService {
       });
 
       const conversationId = await this.gameSession.startConversation(npcId, options);
-      
+
       // Get the conversation to access greeting
       const conversation = this.gameSession.dialogueSystem.getConversation(conversationId);
       const greeting = conversation?.history?.[0]?.text || null;
-      
+
+      // Publish dialogue started event
+      try {
+        statePublisher.publish(
+          this.getGameState(),
+          EVENT_TYPES.DIALOGUE_STARTED,
+          { conversationId, npcId }
+        );
+      } catch (error) {
+        console.error('[GameService] Failed to publish dialogue_started:', error);
+      }
+
       // Return object with conversationId for consistency
       return {
         id: conversationId,
@@ -312,7 +348,7 @@ export class GameService {
         text,
         options
       );
-      
+
       // Store last dialogue for UI display
       this.lastDialogue = {
         conversationId,
@@ -322,6 +358,17 @@ export class GameService {
         timestamp: Date.now(),
         frame: this.gameSession.frame
       };
+
+      // Publish dialogue line event for UI updates
+      try {
+        statePublisher.publish(
+          this.getGameState(),
+          EVENT_TYPES.DIALOGUE_LINE,
+          { conversationId, npcId, text: response.text }
+        );
+      } catch (error) {
+        console.error('[GameService] Failed to publish dialogue_line:', error);
+      }
 
       return response;
     } catch (error) {
@@ -343,6 +390,17 @@ export class GameService {
     });
 
     this.gameSession.endConversation(conversationId);
+
+    // Publish dialogue ended event
+    try {
+      statePublisher.publish(
+        this.getGameState(),
+        EVENT_TYPES.DIALOGUE_ENDED,
+        { conversationId }
+      );
+    } catch (error) {
+      console.error('[GameService] Failed to publish dialogue_ended:', error);
+    }
   }
 
   /**
@@ -493,7 +551,18 @@ export class GameService {
         timestamp: Date.now(),
         frame: this.gameSession.frame
       };
-      
+
+      // Publish action executed event
+      try {
+        statePublisher.publish(
+          this.getGameState(),
+          EVENT_TYPES.ACTION_EXECUTED,
+          { actionType: type, result }
+        );
+      } catch (error) {
+        console.error('[GameService] Failed to publish action_executed:', error);
+      }
+
       return result;
     } catch (error) {
       console.error(`[GameService] Failed to execute action ${type}:`, error);

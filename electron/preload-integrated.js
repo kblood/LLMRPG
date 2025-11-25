@@ -71,8 +71,13 @@ contextBridge.exposeInMainWorld('gameAPI', {
    * Called whenever the game state changes
    */
   onGameUpdate: (callback) => {
-    const handler = (event, update) => callback(update);
+    console.log('[Preload] Setting up onGameUpdate listener');
+    const handler = (event, update) => {
+      console.log('[Preload] Received game:update event:', update?.type, update?.eventType);
+      callback(update);
+    };
     ipcRenderer.on('game:update', handler);
+    console.log('[Preload] onGameUpdate listener registered');
     return () => ipcRenderer.removeListener('game:update', handler);
   },
 
